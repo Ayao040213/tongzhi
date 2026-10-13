@@ -8,180 +8,310 @@
   * { box-sizing: border-box; }
   body {
     font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-    margin: 0;
-    padding: 0;
-    background: #f5f7fa;
-    color: #1a1a1a;
-    line-height: 1.6;
+    margin: 0; padding: 0;
+    background: #f5f7fa; color: #1a1a1a; line-height: 1.6;
   }
-  .wrap { max-width: 520px; margin: 0 auto; padding: 24px 20px; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 16px 16px 40px; }
+  .card { background:#fff; border-radius:14px; padding:20px 18px; box-shadow:0 2px 10px rgba(0,0,0,0.05); margin-bottom:16px; }
+  h1 { font-size:19px; margin:0 0 4px; }
+  h2 { font-size:16px; margin:0 0 12px; }
+  .sub { color:#888; font-size:13px; margin:0 0 16px; }
 
-  .card {
-    background: #fff;
-    border-radius: 14px;
-    padding: 24px 20px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-  }
-  h1 { font-size: 20px; margin: 0 0 4px; }
-  .sub { color: #888; font-size: 13px; margin: 0 0 20px; }
-
-  label { display: block; font-size: 13px; color: #555; margin: 14px 0 6px; }
+  label { display:block; font-size:13px; color:#555; margin:12px 0 6px; }
   input {
-    width: 100%;
-    padding: 12px;
-    font-size: 16px;
-    border: 1px solid #d5dbe3;
-    border-radius: 8px;
+    width:100%; padding:11px; font-size:16px;
+    border:1px solid #d5dbe3; border-radius:8px;
   }
-  input:focus { outline: none; border-color: #2f6fed; }
+  input:focus { outline:none; border-color:#2f6fed; }
 
-  .btn {
-    width: 100%;
-    padding: 13px;
-    font-size: 16px;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    margin-top: 16px;
-  }
-  .btn-primary { background: #2f6fed; color: #fff; }
-  .btn-ghost { background: #eef2f7; color: #2f6fed; margin-top: 10px; }
-  .btn:active { opacity: 0.85; }
+  .btn { width:100%; padding:12px; font-size:16px; border:none; border-radius:8px; cursor:pointer; margin-top:14px; }
+  .btn-primary { background:#2f6fed; color:#fff; }
+  .btn-ghost { background:#eef2f7; color:#2f6fed; margin-top:10px; }
+  .btn-small { width:auto; padding:7px 14px; font-size:13px; margin-top:0; }
+  .btn:active { opacity:0.85; }
 
-  .msg { margin-top: 14px; font-size: 14px; white-space: pre-wrap; }
-  .msg.err { color: #c0392b; }
-  .msg.ok { color: #27ae60; }
+  .msg { margin-top:12px; font-size:14px; white-space:pre-wrap; }
+  .msg.err { color:#c0392b; } .msg.ok { color:#27ae60; }
 
-  .user-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 0;
-    border-bottom: 1px solid #eef0f3;
+  .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  .topbar .who { font-size:13px; color:#555; }
+  .tag { display:inline-block; padding:2px 10px; border-radius:999px; font-size:12px; background:#e8f0fe; color:#2f6fed; }
+
+  .list-item {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:13px 4px; border-bottom:1px solid #eef0f3;
   }
-  .user-row .k { color: #888; font-size: 13px; }
-  .tag {
-    display: inline-block;
-    padding: 2px 10px;
-    border-radius: 999px;
-    font-size: 12px;
-    background: #e8f0fe;
-    color: #2f6fed;
+  .list-item:last-child { border-bottom:none; }
+  .list-item .t { font-size:15px; }
+  .list-item .s { font-size:12px; color:#888; }
+  .code {
+    font-family: monospace; font-size:18px; letter-spacing:2px;
+    background:#eef2f7; padding:2px 10px; border-radius:6px; color:#2f6fed;
   }
+  .empty { color:#999; font-size:14px; text-align:center; padding:20px 0; }
+  .row2 { display:flex; gap:10px; }
+  .row2 > div { flex:1; }
+  .linkbtn { background:none; border:none; color:#2f6fed; font-size:14px; cursor:pointer; padding:0; }
+  .small-note { font-size:12px; color:#bbb; margin-top:18px; text-align:center; }
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <!-- 登录/注册视图 -->
+  <!-- 登录 / 注册 -->
   <div id="login-view" class="card">
     <h1>瞳治视觉训练助手</h1>
     <p class="sub">云端版 · 用邮箱登录</p>
-
     <label>邮箱</label>
     <input id="email" type="email" placeholder="you@example.com" autocomplete="username">
-
     <label>密码（至少 6 位）</label>
     <input id="password" type="password" placeholder="••••••" autocomplete="current-password">
-
     <button class="btn btn-primary" id="login-btn">登录</button>
     <button class="btn btn-ghost" id="signup-btn">注册新账号</button>
     <div class="msg" id="msg"></div>
   </div>
 
-  <!-- 已登录视图 -->
-  <div id="home-view" class="card" style="display:none;">
-    <h1>已登录</h1>
-    <p class="sub">下面是你在这个软件里的身份</p>
-    <div class="user-row"><span class="k">邮箱</span><span id="u-email">—</span></div>
-    <div class="user-row"><span class="k">姓名</span><span id="u-name">—</span></div>
-    <div class="user-row"><span class="k">身份</span><span id="u-role" class="tag">—</span></div>
-    <button class="btn btn-ghost" id="logout-btn">退出登录</button>
+  <!-- 登录后的主界面 -->
+  <div id="main-view" style="display:none;">
+    <div class="topbar">
+      <span class="who">身份：<span class="tag" id="role-tag">—</span> <span id="who-name"></span></span>
+      <span>
+        <button class="linkbtn" id="become-btn" style="display:none;">我是视训师（测试）</button>
+        <button class="linkbtn" id="logout-btn">退出</button>
+      </span>
+    </div>
+    <div id="content"></div>
   </div>
 
 </div>
 
 <script src="supabase.js"></script>
 <script>
-  // ===== 项目配置（这两串就是你建项目时拿到的那两个）=====
   var SUPABASE_URL = 'https://ucjgcybsvrkfgkszcygq.supabase.co';
   var ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjamdjeWJzdnJrZmdrc3pjeWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDY5ODIsImV4cCI6MjEwNzQ4Mjk4Mn0.tMtklRCxDjtO5Lb5cMjqg_LeB5cUxfVOZxxwNRO0aDw';
 
   var sb = window.supabase.createClient(SUPABASE_URL, ANON_KEY);
 
   var $ = function (id) { return document.getElementById(id); };
-  var msg = $('msg');
+  var state = { user: null, profile: null, familyId: null, childId: null };
 
+  // ---------- 工具 ----------
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function fmtTime(iso) { return new Date(iso).toLocaleString('zh-CN'); }
+  function roleText(r) { return r === 'therapist' ? '视训师' : '家长'; }
+
+  // ---------- 登录 ----------
+  function showLogin() { $('login-view').style.display = 'block'; $('main-view').style.display = 'none'; }
+  function showMain() { $('login-view').style.display = 'none'; $('main-view').style.display = 'block'; }
   function showMsg(text, ok) {
-    msg.textContent = text;
-    msg.className = 'msg ' + (ok ? 'ok' : 'err');
+    var m = $('msg'); m.textContent = text; m.className = 'msg ' + (ok ? 'ok' : 'err');
   }
 
-  function showLogin() {
-    $('login-view').style.display = 'block';
-    $('home-view').style.display = 'none';
-  }
-  function showHome(user) {
-    $('login-view').style.display = 'none';
-    $('home-view').style.display = 'block';
-    $('u-email').textContent = user.email || '—';
-    // 读自己的档案，拿姓名和身份
-    sb.from('profiles').select('role, name').eq('id', user.id).single()
-      .then(function (res) {
-        if (res.error) {
-          $('u-name').textContent = '（读取失败）';
-          $('u-role').textContent = '未知';
-          return;
-        }
-        $('u-name').textContent = res.data.name || '（未填）';
-        $('u-role').textContent = res.data.role === 'therapist' ? '视训师' : '家长';
-      });
-  }
-
-  // 注册
   async function signUp() {
-    var email = $('email').value.trim();
-    var password = $('password').value;
+    var email = $('email').value.trim(), password = $('password').value;
     if (!email || !password) { showMsg('请填写邮箱和密码'); return; }
     showMsg('正在注册……');
     var res = await sb.auth.signUp({ email: email, password: password });
     if (res.error) { showMsg('注册失败：' + res.error.message); return; }
-    if (res.data.session) {
-      showMsg('注册成功，已自动登录', true);
-      showHome(res.data.user);
-    } else {
-      showMsg('注册成功！请点「登录」进入', true);
-    }
+    if (res.data.session) { showMsg('注册成功，已自动登录', true); afterLogin(res.data.user); }
+    else { showMsg('注册成功！请点「登录」进入', true); }
   }
-
-  // 登录
   async function signIn() {
-    var email = $('email').value.trim();
-    var password = $('password').value;
+    var email = $('email').value.trim(), password = $('password').value;
     if (!email || !password) { showMsg('请填写邮箱和密码'); return; }
     showMsg('正在登录……');
     var res = await sb.auth.signInWithPassword({ email: email, password: password });
     if (res.error) { showMsg('登录失败：' + res.error.message); return; }
-    showMsg('登录成功', true);
-    showHome(res.data.user);
+    afterLogin(res.data.user);
+  }
+  async function signOut() { await sb.auth.signOut(); state.user = null; state.profile = null; showLogin(); }
+
+  // ---------- 登录后：读档案 + 分流 ----------
+  async function afterLogin(user) {
+    state.user = user;
+    await loadProfile();
+    showMain();
+  }
+  async function loadProfile() {
+    var res = await sb.from('profiles').select('role, name, family_id').eq('id', state.user.id).single();
+    if (res.error) { state.profile = { role: 'parent', name: '', family_id: null }; return; }
+    state.profile = res.data;
+  }
+  function renderTopbar() {
+    $('role-tag').textContent = roleText(state.profile.role);
+    $('who-name').textContent = state.profile.name ? ('· ' + state.profile.name) : '';
+    $('become-btn').style.display = state.profile.role === 'parent' ? 'inline' : 'none';
+  }
+  function home() {
+    renderTopbar();
+    if (state.profile.role === 'therapist') renderTherapistHome();
+    else renderParentHome();
   }
 
-  // 退出
-  async function signOut() {
-    await sb.auth.signOut();
-    showLogin();
+  // ---------- 视训师端 ----------
+  async function renderTherapistHome() {
+    renderTopbar();
+    var c = $('content');
+    c.innerHTML = '<h2>我的家庭</h2>';
+    var res = await sb.from('families').select('*').order('created_at', { ascending: false });
+    if (res.error) { c.innerHTML += '<div class="empty">读取失败：' + esc(res.error.message) + '</div>'; return; }
+    if (!res.data.length) c.innerHTML += '<div class="empty">还没有家庭，先创建一个</div>';
+    res.data.forEach(function (f) {
+      c.innerHTML +=
+        '<div class="list-item">' +
+          '<div><div class="t">' + esc(f.name || '（未命名）') + '</div>' +
+          '<div class="s">邀请码：<span class="code">' + esc(f.invite_code) + '</span></div></div>' +
+          '<button class="btn btn-primary btn-small" onclick="openFamily(\'' + f.id + '\')">进入</button>' +
+        '</div>';
+    });
+    c.innerHTML +=
+      '<div class="card" style="margin-top:16px;"><h2>新建家庭</h2>' +
+      '<input id="family-name" placeholder="家庭名，如：小明家">' +
+      '<button class="btn btn-primary" onclick="createFamily()">创建家庭</button></div>';
+  }
+  async function createFamily() {
+    var name = $('family-name').value.trim();
+    if (!name) { alert('请填家庭名'); return; }
+    var res = await sb.from('families').insert({ name: name, therapist_id: state.user.id }).select();
+    if (res.error) { alert('创建失败：' + res.error.message); return; }
+    alert('创建成功！邀请码是 ' + res.data[0].invite_code);
+    renderTherapistHome();
+  }
+  async function openFamily(fid) {
+    state.familyId = fid;
+    var res = await sb.from('families').select('name').eq('id', fid).single();
+    var fname = res.data ? res.data.name : '';
+    var c = $('content');
+    c.innerHTML = '<h2>家庭：' + esc(fname) + '</h2><div id="child-list"></div>';
+    c.innerHTML +=
+      '<div class="card" style="margin-top:14px;"><h2>添加孩子</h2>' +
+      '<div class="row2"><div><label>姓名</label><input id="child-name" placeholder="孩子名字"></div>' +
+      '<div><label>年龄</label><input id="child-age" type="number" placeholder="6"></div></div>' +
+      '<button class="btn btn-primary" onclick="addChild()">添加孩子</button></div>' +
+      '<button class="btn btn-ghost" onclick="home()">返回</button>';
+    var cr = await sb.from('children').select('*').eq('family_id', fid).order('created_at');
+    var box = $('child-list');
+    if (cr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(cr.error.message) + '</div>'; return; }
+    if (!cr.data.length) box.innerHTML = '<div class="empty">这个家庭还没有孩子</div>';
+    cr.data.forEach(function (k) {
+      box.innerHTML +=
+        '<div class="list-item"><div><div class="t">' + esc(k.name) + '</div>' +
+        '<div class="s">' + (k.age ? (k.age + ' 岁') : '') + '</div></div>' +
+        '<button class="btn btn-primary btn-small" onclick="openChild(\'' + k.id + '\')">看回传</button></div>';
+    });
+  }
+  async function addChild() {
+    var name = $('child-name').value.trim(), age = $('child-age').value;
+    if (!name) { alert('请填孩子姓名'); return; }
+    var res = await sb.from('children').insert({ family_id: state.familyId, name: name, age: age ? parseInt(age) : null }).select();
+    if (res.error) { alert('添加失败：' + res.error.message); return; }
+    openFamily(state.familyId);
+  }
+  async function openChild(cid) {
+    state.childId = cid;
+    var res = await sb.from('children').select('name').eq('id', cid).single();
+    var cname = res.data ? res.data.name : '';
+    var c = $('content');
+    c.innerHTML = '<h2>' + esc(cname) + ' 的回传</h2><div id="rec-list"></div>' +
+      '<button class="btn btn-ghost" onclick="openFamily(\'' + state.familyId + '\')">返回</button>';
+    var rr = await sb.from('records').select('*').eq('child_id', cid).order('created_at', { ascending: false });
+    var box = $('rec-list');
+    if (rr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(rr.error.message) + '</div>'; return; }
+    if (!rr.data.length) box.innerHTML = '<div class="empty">还没有回传记录</div>';
+    rr.data.forEach(function (r) {
+      var d = r.data || {};
+      var desc = '';
+      if (r.type === 'peripheral') desc = '命中 ' + (d.hit || 0) + ' 次 · 未中 ' + (d.miss || 0) + ' 次';
+      else desc = r.type;
+      box.innerHTML +=
+        '<div class="list-item"><div><div class="t">' + esc(desc) + '</div>' +
+        '<div class="s">' + fmtTime(r.created_at) + '</div></div></div>';
+    });
   }
 
+  // ---------- 家长端 ----------
+  function renderParentHome() {
+    renderTopbar();
+    if (state.profile.family_id) { renderParentFamily(); }
+    else { renderJoinFamily(); }
+  }
+  function renderJoinFamily() {
+    var c = $('content');
+    c.innerHTML =
+      '<div class="card"><h1>加入家庭</h1>' +
+      '<p class="sub">向你的视训师索取 6 位「邀请码」，输入后加入</p>' +
+      '<label>邀请码</label><input id="invite-code" placeholder="6 位数字" maxlength="6">' +
+      '<button class="btn btn-primary" onclick="joinFamily()">加入家庭</button></div>';
+  }
+  async function joinFamily() {
+    var code = $('invite-code').value.trim();
+    if (!code) { alert('请输入邀请码'); return; }
+    var res = await sb.rpc('join_family', { p_code: code });
+    if (res.error) { alert('加入失败：' + res.error.message); return; }
+    alert('加入成功！');
+    await loadProfile();
+    renderParentFamily();
+  }
+  async function renderParentFamily() {
+    var c = $('content');
+    var fid = state.profile.family_id;
+    var fam = await sb.from('families').select('name').eq('id', fid).single();
+    c.innerHTML = '<h2>我的家庭' + (fam.data ? '：' + esc(fam.data.name) : '') + '</h2><div id="child-list"></div>';
+    var cr = await sb.from('children').select('*').eq('family_id', fid).order('created_at');
+    var box = $('child-list');
+    if (cr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(cr.error.message) + '</div>'; return; }
+    if (!cr.data.length) box.innerHTML = '<div class="empty">视训师还没有添加孩子，等等再来</div>';
+    cr.data.forEach(function (k) {
+      box.innerHTML +=
+        '<div class="list-item"><div><div class="t">' + esc(k.name) + '</div>' +
+        '<div class="s">' + (k.age ? (k.age + ' 岁') : '') + '</div></div>' +
+        '<button class="btn btn-primary btn-small" onclick="openRecordForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">回传训练</button></div>';
+    });
+  }
+  function openRecordForm(cid, cname) {
+    state.childId = cid;
+    var c = $('content');
+    c.innerHTML =
+      '<h2>周边训练回传</h2>' +
+      '<p class="sub">孩子：' + esc(cname) + '</p>' +
+      '<div class="row2"><div><label>命中次数</label><input id="hit" type="number" value="0"></div>' +
+      '<div><label>未中次数</label><input id="miss" type="number" value="0"></div></div>' +
+      '<button class="btn btn-primary" onclick="submitRecord()">提交回传</button>' +
+      '<button class="btn btn-ghost" onclick="home()">返回</button>';
+  }
+  async function submitRecord() {
+    var hit = parseInt($('hit').value) || 0, miss = parseInt($('miss').value) || 0;
+    var res = await sb.from('records').insert({
+      child_id: state.childId, type: 'peripheral', data: { hit: hit, miss: miss }
+    });
+    if (res.error) { alert('提交失败：' + res.error.message); return; }
+    alert('回传成功！视训师那边已经能看到了');
+    home();
+  }
+
+  // ---------- 测试用：一键变视训师 ----------
+  async function becomeTherapist() {
+    var res = await sb.rpc('become_therapist');
+    if (res.error) { alert('操作失败：' + res.error.message); return; }
+    alert('已切换为视训师身份');
+    await loadProfile();
+    home();
+  }
+
+  // ---------- 绑定事件 ----------
   $('login-btn').onclick = signIn;
   $('signup-btn').onclick = signUp;
   $('logout-btn').onclick = signOut;
+  $('become-btn').onclick = becomeTherapist;
 
-  // 启动时：如果已登录，直接显示主页
+  // 启动：已登录则直接进入
   (async function init() {
     var res = await sb.auth.getSession();
-    if (res.data && res.data.session) {
-      showHome(res.data.session.user);
-    }
+    if (res.data && res.data.session) afterLogin(res.data.session.user);
   })();
 </script>
 </body>
