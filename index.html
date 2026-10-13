@@ -100,6 +100,7 @@
   /* ============ 结果页 ============ */
   .result-wrap{ padding:0 16px; }
   .result-img{ display:block; width:100%; border-radius:16px; box-shadow:0 4px 20px rgba(20,60,80,.15); }
+  .result-hint{ margin:12px 16px 0; background:#fff7e8; border:1px solid var(--accent); color:#8a5a12; font-size:14px; font-weight:600; border-radius:12px; padding:12px 14px; text-align:center; }
   .share-row{ display:flex; gap:10px; padding:0 16px; margin-top:14px; }
   .share-btn{ flex:1; border:none; border-radius:14px; padding:14px 0; font-size:16px; font-weight:700; cursor:pointer; color:#fff; }
   .share-btn.save{ background:var(--success); }
@@ -237,14 +238,14 @@
       </div>
     </div>
 
-    <div class="footnote">视训师身份可在「看教程」里添加指导视频（本地演示）；家长跨设备查看需方案 B 后端。</div>
+    <div class="footnote">👆 家长用「拍眼位照 / 录视频 / 记命中」记录训练，再把图片、视频、文字通过微信发给视训师。</div>
     </div>
 
     <div id="trainerHome" style="display:none">
       <div class="section-title">我的孩子</div>
       <div id="childrenList"></div>
       <button class="big-btn" id="addChildBtn">＋ 添加孩子</button>
-      <div class="footnote">指导视频在各训练项目的「看教程」里上传；家长回传数据等方案 B 后在此查看。</div>
+      <div class="footnote">指导视频在各训练项目的「看教程」里上传（仅本机演示）；家长的回传内容目前通过微信发送，这里暂不支持在线查看。</div>
     </div>
   </section>
 
@@ -339,12 +340,13 @@
     <div class="result-wrap">
       <img class="result-img" id="resultImg" alt="眼位图">
     </div>
-    <div class="share-row">
+    <div class="result-hint" id="resultHint"></div>
+    <div class="share-row" id="shareRow">
       <button class="share-btn save" id="saveBtn">保存图片</button>
       <button class="share-btn share" id="shareBtn">分享给视训师</button>
     </div>
     <button class="big-btn ghost" id="backHomeFromResult">返回今日计划</button>
-    <div class="footnote">若按钮保存不了：<b>长按上方图片</b> → 保存到相册 → 再微信发给视训师。</div>
+    <div class="footnote" id="resultFootnote"></div>
   </section>
 
   <!-- ========== 5. 马斯登球 · 图文教程 ========== -->
@@ -410,7 +412,7 @@
     <div id="marsdenSlots"></div>
 
     <button class="big-btn" id="uploadMarsdenBtn" disabled>上传给视训师</button>
-    <div class="footnote">若微信提示「分享失败」：用每段视频下方的「💾 保存」存到手机，再打开微信手动发给视训师。App 内真上传云端要等方案 B。</div>
+    <div class="footnote">若微信提示「分享失败」：用每段视频下方的「💾 保存」存到手机，再打开微信手动发给视训师。</div>
   </section>
 
   <!-- ========== 7. 周边训练 · 图文教程 ========== -->
@@ -520,7 +522,7 @@
 
     <div class="block">
       <h3>📥 家长回传</h3>
-      <div class="tip">眼位图 / 训练视频 / 命中记录——方案 B（后端）上线后在这里直接查看；当前零后端，家长通过微信发给你。</div>
+      <div class="tip">眼位图 / 训练视频 / 命中记录——当前版本家长通过微信直接发给你，这里暂不支持在线查看。</div>
     </div>
   </section>
 
@@ -659,8 +661,8 @@ $('fileInput').addEventListener('change', () => {
 function refreshStatus(){
   const n = DIRS.filter(d => curPhotos()[d.name]).length;
   const left = 9 - n;
-  $('photoStatus').textContent = stageLabel() + '：已拍 ' + n + ' / 9' + (n < 9 ? '（还差 ' + left + ' 张，缺的会标「缺」）' : '，可以生成啦');
-  $('genBtn').disabled = n < 1;      // 至少 1 张即可生成，缺的格子标「缺」
+  $('photoStatus').textContent = stageLabel() + '：已拍 ' + n + ' / 9' + (n < 9 ? '（还差 ' + left + ' 张）' : '，可以生成啦');
+  $('genBtn').disabled = n < 9;      // 拍满 9 张才能生成：缺方位的眼位图对视训师没诊断价值
   $('genBtn').textContent = '生成' + stageLabel() + '眼位图';
 }
 
@@ -726,6 +728,18 @@ async function generate(){
   return canvas;
 }
 
+const inWeChat = /MicroMessenger/i.test(navigator.userAgent);
+function prepareResult(){
+  if(inWeChat){
+    $('resultHint').textContent = '微信里点按钮保存/分享多半失效，最稳做法：长按上方图片 → 保存到相册 → 再发到聊天给视训师。';
+    $('shareRow').style.display = 'none';
+    $('resultFootnote').textContent = '保存后打开微信，把图片发给视训师即可。';
+  } else {
+    $('resultHint').textContent = '可点下方按钮保存/分享，也可以长按上方图片保存到相册。';
+    $('shareRow').style.display = 'flex';
+    $('resultFootnote').textContent = '在微信里打开时，请改用「长按图片保存」。';
+  }
+}
 let resultDataURL = '';
 let resultBlob = null;
 async function doGenerate(){
@@ -737,6 +751,7 @@ async function doGenerate(){
     resultBlob = await canvasToBlob(canvas);
     $('resultImg').src = resultDataURL;
     $('resultTitle').textContent = stageLabel() + '眼位图已生成';
+    prepareResult();
     showScreen('screen-result');
   }catch(e){
     alert('生成失败，请重试');
