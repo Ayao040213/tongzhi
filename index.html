@@ -77,6 +77,11 @@
   .stage-tab{ flex:1; border:none; border-radius:12px; padding:11px 0; font-size:15px; font-weight:600; cursor:pointer; background:#eef4f6; color:var(--muted); }
   .stage-tab.active{ background:var(--primary); color:#fff; }
 
+  /* ============ 拍照来源切换（拍照 / 相册） ============ */
+  .source-tabs{ display:flex; gap:8px; padding:12px 16px 0; }
+  .source-tab{ flex:1; border:none; border-radius:12px; padding:10px 0; font-size:14px; font-weight:600; cursor:pointer; background:#eef4f6; color:var(--muted); }
+  .source-tab.active{ background:var(--accent); color:#fff; }
+
   /* ============ 拍照九宫格 ============ */
   .photo-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; padding:0 16px; margin-top:12px; }
   .photo-cell{
@@ -323,6 +328,11 @@
       <button class="stage-tab" data-stage="double">③ 双眼</button>
     </div>
 
+    <div class="source-tabs" id="photoSourceTabs">
+      <button class="source-tab active" data-source="camera">📷 拍照</button>
+      <button class="source-tab" data-source="gallery">🖼 从相册选</button>
+    </div>
+
     <div class="photo-grid square" id="photoGrid"></div>
     <div class="photo-status" id="photoStatus">右眼：已拍 0 / 9</div>
     <button class="clear-btn" id="clearBtn">清空本组重拍</button>
@@ -408,6 +418,11 @@
     </div>
 
     <div class="section-title">按三个口令，各录一小段</div>
+
+    <div class="source-tabs" id="marsdenSourceTabs">
+      <button class="source-tab active" data-source="camera">🎥 录像</button>
+      <button class="source-tab" data-source="gallery">🖼 从相册选</button>
+    </div>
 
     <div id="marsdenSlots"></div>
 
@@ -558,9 +573,11 @@
 
 </div>
 
-<input type="file" id="fileInput" accept="image/*" capture="environment" style="position:absolute; left:-9999px; width:1px; height:1px;">
+<input type="file" id="fileInput" accept="image/*" style="position:absolute; left:-9999px; width:1px; height:1px;">
+<input type="file" id="fileInputCamera" accept="image/*" capture="environment" style="position:absolute; left:-9999px; width:1px; height:1px;">
 <input type="file" id="videoInput" accept="video/*" style="position:absolute; left:-9999px; width:1px; height:1px;">
-<input type="file" id="marsdenVideoInput" accept="video/*" capture="environment" style="position:absolute; left:-9999px; width:1px; height:1px;">
+<input type="file" id="marsdenVideoInput" accept="video/*" style="position:absolute; left:-9999px; width:1px; height:1px;">
+<input type="file" id="marsdenVideoInputCamera" accept="video/*" capture="environment" style="position:absolute; left:-9999px; width:1px; height:1px;">
 
 <script>
 /* =====================================================================
@@ -639,15 +656,21 @@ function renderThumb(dir){
   }
 }
 
+let photoSource = 'camera';   // 'camera' 拍照 / 'gallery' 相册
 function pickPhoto(dir){
   pendingDir = dir;
-  const input = $('fileInput');
+  const input = $(photoSource === 'camera' ? 'fileInputCamera' : 'fileInput');
   input.value = '';                 // 清空，允许重选同一张照片
   input.click();
 }
+document.querySelectorAll('#photoSourceTabs .source-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    photoSource = btn.dataset.source;
+    document.querySelectorAll('#photoSourceTabs .source-tab').forEach(b => b.classList.toggle('active', b === btn));
+  });
+});
 
-$('fileInput').addEventListener('change', () => {
-  const f = $('fileInput').files[0];
+function handlePhotoFile(f){
   if(!f || !pendingDir) return;
   const dir = pendingDir;
   const p = curPhotos();
@@ -656,7 +679,9 @@ $('fileInput').addEventListener('change', () => {
   p[dir] = { url: URL.createObjectURL(f), file: f };
   renderThumb(dir);
   refreshStatus();
-});
+}
+$('fileInput').addEventListener('change', () => { handlePhotoFile($('fileInput').files[0]); });
+$('fileInputCamera').addEventListener('change', () => { handlePhotoFile($('fileInputCamera').files[0]); });
 
 function refreshStatus(){
   const n = DIRS.filter(d => curPhotos()[d.name]).length;
@@ -991,12 +1016,19 @@ function renderMarsdenSlots(){
   btn.textContent = count === 0 ? '上传给视训师（先录至少一段）' : '上传给视训师（已录 ' + count + ' / 3 段）';
 }
 
+let marsdenSource = 'camera';   // 'camera' 录像 / 'gallery' 相册
 function pickMarsdenSlot(key){
   pendingMarsdenSlot = key;
-  const input = $('marsdenVideoInput');
+  const input = $(marsdenSource === 'camera' ? 'marsdenVideoInputCamera' : 'marsdenVideoInput');
   input.value = '';
   input.click();
 }
+document.querySelectorAll('#marsdenSourceTabs .source-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    marsdenSource = btn.dataset.source;
+    document.querySelectorAll('#marsdenSourceTabs .source-tab').forEach(b => b.classList.toggle('active', b === btn));
+  });
+});
 
 function saveMarsdenVideo(key){
   const v = marsdenVideos[key];
@@ -1018,15 +1050,16 @@ document.addEventListener('click', e => {
   if(sv){ saveMarsdenVideo(sv.dataset.key); }
 });
 
-$('marsdenVideoInput').addEventListener('change', () => {
-  const f = $('marsdenVideoInput').files[0];
+function handleMarsdenFile(f){
   if(!f || !pendingMarsdenSlot) return;
   const key = pendingMarsdenSlot;
   const old = marsdenVideos[key];
   if(old && old.url) URL.revokeObjectURL(old.url);
   marsdenVideos[key] = { url: URL.createObjectURL(f), file: f };
   renderMarsdenSlots();
-});
+}
+$('marsdenVideoInput').addEventListener('change', () => { handleMarsdenFile($('marsdenVideoInput').files[0]); });
+$('marsdenVideoInputCamera').addEventListener('change', () => { handleMarsdenFile($('marsdenVideoInputCamera').files[0]); });
 
 function uploadMarsden(){
   const files = MARSDEN_SLOTS.filter(s => marsdenVideos[s.key]).map(s => {
