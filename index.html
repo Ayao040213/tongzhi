@@ -176,6 +176,12 @@
   .rx-param{ width:100%; margin-top:10px; border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:14px; color:var(--text); background:#f7fafb; }
   .rx-note{ width:100%; min-height:70px; border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:14px; color:var(--text); background:#f7fafb; resize:vertical; font-family:inherit; }
   .rx-preview{ white-space:pre-wrap; font-size:14px; line-height:1.7; background:#f7fafb; border-radius:10px; padding:12px; color:var(--text); }
+
+  /* ============ 自定义训练 · 素材/回传缩略图 ============ */
+  .custom-assets{ display:flex; flex-wrap:wrap; gap:8px; }
+  .custom-assets .asset{ position:relative; width:80px; height:80px; border-radius:10px; overflow:hidden; border:1px solid var(--line); background:#eef4f6; }
+  .custom-assets .asset img, .custom-assets .asset video{ width:100%; height:100%; object-fit:cover; display:block; }
+  .custom-assets .asset .x{ position:absolute; top:2px; right:2px; width:20px; height:20px; background:rgba(0,0,0,.65); color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; line-height:1; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -242,6 +248,8 @@
         <button class="pa-btn primary" id="goPeripheralRecord">开始记录</button>
       </div>
     </div>
+
+    <div id="customHome"></div>
 
     <div class="footnote">👆 家长用「拍眼位照 / 录视频 / 记命中」记录训练，再把图片、视频、文字通过微信发给视训师。</div>
     </div>
@@ -535,6 +543,10 @@
 
     <button class="big-btn" id="newRxBtn">＋ 新建处方</button>
 
+    <div class="section-title">📌 自定义训练</div>
+    <div id="customList"></div>
+    <button class="big-btn ghost" id="newCustomBtn">＋ 新建自定义训练</button>
+
     <div class="block">
       <h3>📥 家长回传</h3>
       <div class="tip">眼位图 / 训练视频 / 命中记录——当前版本家长通过微信直接发给你，这里暂不支持在线查看。</div>
@@ -571,6 +583,56 @@
     <button class="big-btn ghost" id="saveRxBtn" style="display:none">保存到档案</button>
   </section>
 
+  <!-- ========== 11. 视训师 · 新建/编辑自定义训练 ========== -->
+  <section id="screen-custom-editor" class="screen">
+    <div class="topbar">
+      <div class="back" onclick="showScreen('screen-trainer-child')">← 返回</div>
+      <div class="brand">自定义训练</div>
+      <div class="sub" id="customChildLabel"></div>
+    </div>
+
+    <div class="block">
+      <h3>🏷 项目名字</h3>
+      <input type="text" id="customName" class="rx-param" placeholder="如：追视训练、手眼协调…">
+    </div>
+
+    <div class="block">
+      <h3>📝 教程内容</h3>
+      <textarea id="customDesc" class="rx-note" placeholder="写清楚家长怎么带着练，可分步骤…"></textarea>
+    </div>
+
+    <div class="block">
+      <h3>📷 图片</h3>
+      <div id="customImgs" class="custom-assets"></div>
+      <button class="small-btn ghost" id="addCustomImg">＋ 添加图片</button>
+    </div>
+
+    <div class="block">
+      <h3>🎬 视频</h3>
+      <div id="customVideos" class="custom-assets"></div>
+      <button class="small-btn ghost" id="addCustomVideo">＋ 添加视频</button>
+    </div>
+
+    <button class="big-btn" id="saveCustomBtn">保存并布置</button>
+  </section>
+
+  <!-- ========== 12. 家长 · 自定义训练详情 ========== -->
+  <section id="screen-custom-detail" class="screen">
+    <div class="topbar">
+      <div class="back" onclick="showScreen('screen-home')">← 返回</div>
+      <div class="brand" id="customDetailName">自定义训练</div>
+      <div class="sub">来自视训师的布置</div>
+    </div>
+
+    <div class="block" id="customDetailDesc"></div>
+    <div class="block" id="customDetailMedia"></div>
+
+    <div class="section-title">📷 回传进度</div>
+    <div id="customProgress" class="custom-assets" style="padding:0 16px;"></div>
+    <button class="big-btn" id="progressPhotoBtn">📷 拍照回传进度</button>
+    <div class="footnote">拍一张孩子训练时的照片，视训师就能看到进度。</div>
+  </section>
+
 </div>
 
 <input type="file" id="fileInput" accept="image/*" style="position:absolute; left:-9999px; width:1px; height:1px;">
@@ -578,6 +640,9 @@
 <input type="file" id="videoInput" accept="video/*" style="position:absolute; left:-9999px; width:1px; height:1px;">
 <input type="file" id="marsdenVideoInput" accept="video/*" style="position:absolute; left:-9999px; width:1px; height:1px;">
 <input type="file" id="marsdenVideoInputCamera" accept="video/*" capture="environment" style="position:absolute; left:-9999px; width:1px; height:1px;">
+<input type="file" id="customImgInput" accept="image/*" multiple style="position:absolute; left:-9999px; width:1px; height:1px;">
+<input type="file" id="customVideoInput" accept="video/*" multiple style="position:absolute; left:-9999px; width:1px; height:1px;">
+<input type="file" id="progressPhotoInput" accept="image/*" capture="environment" style="position:absolute; left:-9999px; width:1px; height:1px;">
 
 <script>
 /* =====================================================================
@@ -839,6 +904,7 @@ function setRole(r){
   $('parentHome').style.display = (r === 'parent') ? 'block' : 'none';
   $('trainerHome').style.display = (r === 'trainer') ? 'block' : 'none';
   if(r === 'trainer') renderChildren();
+  if(r === 'parent') renderCustomHome();
   renderVideos();
 }
 function initRole(){
@@ -1246,6 +1312,7 @@ function openChild(id){
   $('childProfileName').textContent = c ? c.name : '';
   $('childProfileNote').textContent = c && c.note ? c.note : '训练档案';
   renderRxList();
+  renderCustomList();
   showScreen('screen-trainer-child');
 }
 
@@ -1365,6 +1432,255 @@ function saveRx(){
   openChild(currentChildId);
 }
 
+/* ============ 自定义训练：视训师布置 + 家长回传（本地版） ============ */
+let customProjects = loadCustomProjects();
+let currentCustomId = null;
+let customDraft = null;
+let customImgs = [];
+let customVideos = [];
+
+function loadCustomProjects(){ try{ return JSON.parse(lsGet('customProjects','[]')); }catch(e){ return []; } }
+function saveCustomProjects(){ lsSet('customProjects', JSON.stringify(customProjects)); }
+
+function openAssetDb(){
+  if(!('indexedDB' in window)) return Promise.reject(new Error('no idb'));
+  return new Promise((res, rej) => {
+    const req = indexedDB.open('tongzhi_custom', 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains('assets')) db.createObjectStore('assets', { keyPath:'id' });
+    };
+    req.onsuccess = e => res(e.target.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+async function dbAddAsset(blob, name){
+  const db = await openAssetDb();
+  const id = uid();
+  await new Promise((res, rej) => {
+    const tx = db.transaction('assets','readwrite');
+    tx.objectStore('assets').add({ id, blob, name, ts: Date.now() });
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+  return id;
+}
+async function dbGetAsset(id){
+  try{
+    const db = await openAssetDb();
+    return await new Promise((res, rej) => {
+      const tx = db.transaction('assets','readonly');
+      const rq = tx.objectStore('assets').get(id);
+      rq.onsuccess = () => res(rq.result);
+      rq.onerror = () => rej(rq.error);
+    });
+  }catch(e){ return null; }
+}
+async function dbDeleteAsset(id){
+  try{
+    const db = await openAssetDb();
+    await new Promise((res, rej) => {
+      const tx = db.transaction('assets','readwrite');
+      tx.objectStore('assets').delete(id);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+    });
+  }catch(e){}
+}
+
+/* ---- 视训师：孩子档案里的自定义训练列表 ---- */
+function renderCustomList(){
+  const box = $('customList');
+  box.innerHTML = '';
+  const list = customProjects.filter(p => p.childId === currentChildId).sort((a,b) => b.created - a.created);
+  if(!list.length){
+    box.innerHTML = '<div class="empty-hint">还没有自定义训练，点下方「＋ 新建自定义训练」。</div>';
+    return;
+  }
+  list.forEach(p => {
+    const prog = (p.progress || []).length;
+    const card = document.createElement('div');
+    card.className = 'plan-card';
+    card.style.cursor = 'pointer';
+    card.innerHTML = '<div class="row1"><div class="icon">📌</div>' +
+      '<div class="info"><div class="title">' + esc(p.name) + '</div>' +
+      '<div class="meta">布置于 ' + dateStr(new Date(p.created)) + ' · 已回传 ' + prog + ' 次</div></div>' +
+      '<span class="chev">›</span></div>' +
+      '<div class="plan-actions">' +
+      '<button class="pa-btn ghost" data-act="edit" data-id="' + p.id + '">编辑</button>' +
+      '<button class="pa-btn ghost" data-act="del" data-id="' + p.id + '">删除</button>' +
+      '</div>';
+    card.addEventListener('click', () => viewCustomDetail(p.id));
+    box.appendChild(card);
+  });
+  box.querySelectorAll('[data-act]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const p = customProjects.find(x => x.id === btn.dataset.id);
+      if(!p) return;
+      if(btn.dataset.act === 'edit'){ openCustomEditor(p.id); }
+      else {
+        if(!confirm('确定删除「' + p.name + '」？')) return;
+        (p.images||[]).forEach(im => dbDeleteAsset(im.id));
+        (p.videos||[]).forEach(v => dbDeleteAsset(v.id));
+        (p.progress||[]).forEach(pr => dbDeleteAsset(pr.id));
+        customProjects = customProjects.filter(x => x.id !== p.id);
+        saveCustomProjects();
+        renderCustomList();
+      }
+    });
+  });
+}
+
+/* ---- 视训师：新建/编辑自定义训练 ---- */
+function openCustomEditor(id){
+  const c = childById(currentChildId);
+  $('customChildLabel').textContent = c ? '给「' + c.name + '」布置' : '自定义训练';
+  const p = id ? customProjects.find(x => x.id === id) : null;
+  customDraft = id || null;
+  customImgs = []; customVideos = [];
+  $('customName').value = p ? p.name : '';
+  $('customDesc').value = p ? (p.desc || '') : '';
+  renderCustomImgs(); renderCustomVideos();
+  if(p){
+    (async () => {
+      for(const im of (p.images||[])){ const a = await dbGetAsset(im.id); if(a) customImgs.push({ id: im.id, name: im.name, url: URL.createObjectURL(a.blob) }); }
+      for(const v of (p.videos||[])){ const a = await dbGetAsset(v.id); if(a) customVideos.push({ id: v.id, name: v.name, url: URL.createObjectURL(a.blob) }); }
+      renderCustomImgs(); renderCustomVideos();
+    })();
+  }
+  showScreen('screen-custom-editor');
+}
+function renderCustomImgs(){
+  const box = $('customImgs');
+  box.innerHTML = '';
+  customImgs.forEach((im, i) => {
+    const d = document.createElement('div');
+    d.className = 'asset';
+    d.innerHTML = '<img src="' + im.url + '"><div class="x">×</div>';
+    d.querySelector('.x').addEventListener('click', () => { customImgs.splice(i,1); renderCustomImgs(); });
+    box.appendChild(d);
+  });
+}
+function renderCustomVideos(){
+  const box = $('customVideos');
+  box.innerHTML = '';
+  customVideos.forEach((v, i) => {
+    const d = document.createElement('div');
+    d.className = 'asset';
+    d.innerHTML = '<video src="' + v.url + '" muted></video><div class="x">×</div>';
+    d.querySelector('.x').addEventListener('click', () => { customVideos.splice(i,1); renderCustomVideos(); });
+    box.appendChild(d);
+  });
+}
+function saveCustomProject(){
+  const name = $('customName').value.trim();
+  if(!name){ alert('请先填写项目名字'); return; }
+  const desc = $('customDesc').value.trim();
+  const images = customImgs.map(x => ({ id: x.id, name: x.name }));
+  const videos = customVideos.map(x => ({ id: x.id, name: x.name }));
+  if(customDraft){
+    const p = customProjects.find(x => x.id === customDraft);
+    if(p){ p.name = name; p.desc = desc; p.images = images; p.videos = videos; }
+  } else {
+    customProjects.push({ id: uid(), childId: currentChildId, name, desc, images, videos, progress: [], created: Date.now() });
+  }
+  saveCustomProjects();
+  openChild(currentChildId);
+}
+
+/* ---- 家长：首页自定义训练卡片 ---- */
+function renderCustomHome(){
+  const box = $('customHome');
+  if(!box) return;
+  box.innerHTML = '';
+  if(!customProjects.length){ box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = '<div class="section-title">📌 视训师布置的训练</div>';
+  customProjects.forEach(p => {
+    const c = childById(p.childId);
+    const card = document.createElement('div');
+    card.className = 'plan-card';
+    card.style.cursor = 'pointer';
+    card.innerHTML = '<div class="row1"><div class="icon">📌</div>' +
+      '<div class="info"><div class="title">' + esc(p.name) + '</div>' +
+      '<div class="meta">' + (c ? esc(c.name) : '') + ' · 来自视训师</div></div>' +
+      '<span class="chev">›</span></div>' +
+      '<div class="plan-actions"><button class="pa-btn primary">去训练打卡</button></div>';
+    card.addEventListener('click', () => viewCustomDetail(p.id));
+    box.appendChild(card);
+  });
+}
+
+/* ---- 详情页 + 回传 ---- */
+function viewCustomDetail(id){
+  const p = customProjects.find(x => x.id === id);
+  if(!p) return;
+  currentCustomId = id;
+  $('customDetailName').textContent = p.name;
+  $('customDetailDesc').innerHTML = '<h3>📝 教程</h3><div class="tip">' + (esc(p.desc || '').replace(/\n/g,'<br>') || '（视训师没有写教程说明）') + '</div>';
+  renderCustomMedia(p);
+  renderCustomProgress(p);
+  showScreen('screen-custom-detail');
+}
+async function renderCustomMedia(p){
+  const box = $('customDetailMedia');
+  let html = '';
+  for(const im of (p.images||[])){ const a = await dbGetAsset(im.id); if(a) html += '<img src="' + URL.createObjectURL(a.blob) + '" style="width:100%;border-radius:12px;margin-bottom:8px;display:block;">'; }
+  for(const v of (p.videos||[])){ const a = await dbGetAsset(v.id); if(a) html += '<video controls playsinline src="' + URL.createObjectURL(a.blob) + '" style="width:100%;border-radius:12px;margin-bottom:8px;max-height:240px;display:block;"></video>'; }
+  box.innerHTML = '<h3>📎 训练素材</h3>' + (html || '<div class="tip">视训师没有上传图片或视频。</div>');
+}
+async function renderCustomProgress(p){
+  const box = $('customProgress');
+  box.innerHTML = '';
+  const prog = p.progress || [];
+  if(!prog.length){
+    box.innerHTML = '<div style="text-align:center;font-size:13px;color:#6b7a82;padding:8px 0;">还没有回传进度，点下方按钮拍照。</div>';
+    return;
+  }
+  for(const pr of prog){
+    const a = await dbGetAsset(pr.id);
+    if(a){
+      const d = document.createElement('div');
+      d.className = 'asset';
+      d.style.width = '90px'; d.style.height = '90px';
+      d.innerHTML = '<img src="' + URL.createObjectURL(a.blob) + '">';
+      box.appendChild(d);
+    }
+  }
+}
+
+/* ---- 事件绑定 ---- */
+$('newCustomBtn').addEventListener('click', () => openCustomEditor(null));
+$('saveCustomBtn').addEventListener('click', saveCustomProject);
+$('addCustomImg').addEventListener('click', () => $('customImgInput').click());
+$('customImgInput').addEventListener('change', async () => {
+  const files = [...$('customImgInput').files];
+  for(const f of files){ const id = await dbAddAsset(f, f.name); customImgs.push({ id, name: f.name, url: URL.createObjectURL(f) }); }
+  $('customImgInput').value = '';
+  renderCustomImgs();
+});
+$('addCustomVideo').addEventListener('click', () => $('customVideoInput').click());
+$('customVideoInput').addEventListener('change', async () => {
+  const files = [...$('customVideoInput').files];
+  for(const f of files){ const id = await dbAddAsset(f, f.name); customVideos.push({ id, name: f.name, url: URL.createObjectURL(f) }); }
+  $('customVideoInput').value = '';
+  renderCustomVideos();
+});
+$('progressPhotoBtn').addEventListener('click', () => $('progressPhotoInput').click());
+$('progressPhotoInput').addEventListener('change', async () => {
+  const f = $('progressPhotoInput').files[0];
+  if(!f || !currentCustomId) return;
+  const p = customProjects.find(x => x.id === currentCustomId);
+  if(!p) return;
+  const id = await dbAddAsset(f, f.name);
+  p.progress = p.progress || [];
+  p.progress.push({ id, name: f.name, ts: Date.now() });
+  saveCustomProjects();
+  $('progressPhotoInput').value = '';
+  renderCustomProgress(p);
+});
+
 $('addChildBtn').addEventListener('click', addChild);
 $('newRxBtn').addEventListener('click', newRx);
 $('genRxBtn').addEventListener('click', genRx);
@@ -1377,6 +1693,7 @@ refreshPer();
 renderMarsdenSlots();
 buildGrid();
 refreshPlan();
+renderCustomHome();
 </script>
 </body>
 </html>
