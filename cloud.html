@@ -76,7 +76,6 @@
     <div class="topbar">
       <span class="who">身份：<span class="tag" id="role-tag">—</span> <span id="who-name"></span></span>
       <span>
-        <button class="linkbtn" id="become-btn" style="display:none;">我是视训师（测试）</button>
         <button class="linkbtn" id="logout-btn">退出</button>
       </span>
     </div>
@@ -145,7 +144,6 @@
   function renderTopbar() {
     $('role-tag').textContent = roleText(state.profile.role);
     $('who-name').textContent = state.profile.name ? ('· ' + state.profile.name) : '';
-    $('become-btn').style.display = state.profile.role === 'parent' ? 'inline' : 'none';
   }
   function home() {
     renderTopbar();
@@ -294,20 +292,10 @@
     home();
   }
 
-  // ---------- 测试用：一键变视训师 ----------
-  async function becomeTherapist() {
-    var res = await sb.rpc('become_therapist');
-    if (res.error) { alert('操作失败：' + res.error.message); return; }
-    alert('已切换为视训师身份');
-    await loadProfile();
-    home();
-  }
-
   // ---------- 绑定事件 ----------
   $('login-btn').onclick = signIn;
   $('signup-btn').onclick = signUp;
   $('logout-btn').onclick = signOut;
-  $('become-btn').onclick = becomeTherapist;
 
   // 启动：已登录则直接进入
   (async function init() {
