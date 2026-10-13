@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>瞳治 · Supabase 连通性测试</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 24px 20px;
+    line-height: 1.7;
+    color: #1a1a1a;
+  }
+  h1 { font-size: 20px; margin: 0 0 6px; }
+  .sub { color: #888; font-size: 13px; margin: 0 0 20px; }
+  button {
+    width: 100%;
+    padding: 14px;
+    font-size: 16px;
+    border: none;
+    border-radius: 10px;
+    background: #2f6fed;
+    color: #fff;
+    cursor: pointer;
+  }
+  button:active { opacity: 0.85; }
+  .result {
+    margin-top: 18px;
+    padding: 16px;
+    border-radius: 10px;
+    font-size: 15px;
+    white-space: pre-wrap;
+    display: none;
+  }
+  .ok    { display: block; background: #e7f7ee; border: 1px solid #2ecc71; }
+  .fail  { display: block; background: #fdecea; border: 1px solid #e74c3c; }
+  .warn  { display: block; background: #fff7e6; border: 1px solid #f39c12; }
+  .test  { display: block; background: #eef2f7; border: 1px solid #b0c4de; }
+</style>
+</head>
+<body>
+  <h1>瞳治 · Supabase 连通性测试</h1>
+  <p class="sub">这个页面用来验证：你的设备（不开翻墙）能否直连 Supabase 服务器。</p>
+
+  <button id="btn">点我测试连接</button>
+  <div id="result" class="result"></div>
+
+<script>
+  var SUPABASE_URL = 'https://ucjgcybsvrkfgkszcygq.supabase.co';
+  var ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjamdjeWJzdnJrZmdrc3pjeWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDY5ODIsImV4cCI6MjEwNzQ4Mjk4Mn0.tMtklRCxDjtO5Lb5cMjqg_LeB5cUxfVOZxxwNRO0aDw';
+
+  var result = document.getElementById('result');
+
+  function show(cls, html) {
+    result.className = 'result ' + cls;
+    result.innerHTML = html;
+  }
+
+  function timedFetch(url, options) {
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, 15000);
+    return fetch(url, Object.assign({ signal: controller.signal }, options || {}))
+      .finally(function () { clearTimeout(timer); });
+  }
+
+  async function runTest() {
+    show('test', '正在测试连接……\n（最多等 15 秒，请别关闭页面）');
+    var t0 = Date.now();
+
+    // 测试①：网络层——能否到达 Supabase 的服务器（不需要 key）
+    try {
+      var r1 = await timedFetch(SUPABASE_URL + '/auth/v1/health');
+      var ms1 = Date.now() - t0;
+    } catch (err) {
+      show('fail',
+        '❌ 测试①失败：连不上 Supabase 服务器\n\n' +
+        '错误信息：' + err.message + '\n' +
+        '耗时：' + (Date.now() - t0) + ' 毫秒\n\n' +
+        '结论：这台设备（当前网络）无法访问 Supabase。\n' +
+        '方案 B 在这条网络下走不通，需要换国内云（腾讯云开发 / 阿里云等）。\n' +
+        '把这个结果告诉我，我们一起定下一步。'
+      );
+      return;
+    }
+
+    // 测试②：带 anon key 访问数据库通道（验证 key 有效）
+    try {
+      var t1 = Date.now();
+      var r2 = await timedFetch(SUPABASE_URL + '/rest/v1/', {
+        headers: {
+          'apikey': ANON_KEY,
+          'Authorization': 'Bearer ' + ANON_KEY
+        }
+      });
+      var ms2 = Date.now() - t1;
+    } catch (err) {
+      show('warn',
+        '✅ 测试①通过：网络层能连上（' + ms1 + ' 毫秒）\n' +
+        '⚠️ 测试②异常：' + err.message + '\n\n' +
+        '说明：网络通了，但数据库通道可能有点问题，把这个结果发我看看。'
+      );
+      return;
+    }
+
+    // 两个都通过
+    show('ok',
+      '✅ 全部通过！\n\n' +
+      '① 网络层连通：' + ms1 + ' 毫秒\n' +
+      '② 数据库通道连通（anon key 有效）：' + ms2 + ' 毫秒\n\n' +
+      '结论：这台设备能直连 Supabase，方案 B 的网络前提成立，可以继续往下做。\n' +
+      '把「✅ 全部通过」这个结果告诉我即可。'
+    );
+  }
+
+  document.getElementById('btn').onclick = runTest;
+</script>
+</body>
+</html>

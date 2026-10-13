@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>瞳治视觉训练助手 · 云端版</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    margin: 0;
+    padding: 0;
+    background: #f5f7fa;
+    color: #1a1a1a;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 520px; margin: 0 auto; padding: 24px 20px; }
+
+  .card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 24px 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: #888; font-size: 13px; margin: 0 0 20px; }
+
+  label { display: block; font-size: 13px; color: #555; margin: 14px 0 6px; }
+  input {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: 1px solid #d5dbe3;
+    border-radius: 8px;
+  }
+  input:focus { outline: none; border-color: #2f6fed; }
+
+  .btn {
+    width: 100%;
+    padding: 13px;
+    font-size: 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 16px;
+  }
+  .btn-primary { background: #2f6fed; color: #fff; }
+  .btn-ghost { background: #eef2f7; color: #2f6fed; margin-top: 10px; }
+  .btn:active { opacity: 0.85; }
+
+  .msg { margin-top: 14px; font-size: 14px; white-space: pre-wrap; }
+  .msg.err { color: #c0392b; }
+  .msg.ok { color: #27ae60; }
+
+  .user-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #eef0f3;
+  }
+  .user-row .k { color: #888; font-size: 13px; }
+  .tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    background: #e8f0fe;
+    color: #2f6fed;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 登录/注册视图 -->
+  <div id="login-view" class="card">
+    <h1>瞳治视觉训练助手</h1>
+    <p class="sub">云端版 · 用邮箱登录</p>
+
+    <label>邮箱</label>
+    <input id="email" type="email" placeholder="you@example.com" autocomplete="username">
+
+    <label>密码（至少 6 位）</label>
+    <input id="password" type="password" placeholder="••••••" autocomplete="current-password">
+
+    <button class="btn btn-primary" id="login-btn">登录</button>
+    <button class="btn btn-ghost" id="signup-btn">注册新账号</button>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <!-- 已登录视图 -->
+  <div id="home-view" class="card" style="display:none;">
+    <h1>已登录</h1>
+    <p class="sub">下面是你在这个软件里的身份</p>
+    <div class="user-row"><span class="k">邮箱</span><span id="u-email">—</span></div>
+    <div class="user-row"><span class="k">姓名</span><span id="u-name">—</span></div>
+    <div class="user-row"><span class="k">身份</span><span id="u-role" class="tag">—</span></div>
+    <button class="btn btn-ghost" id="logout-btn">退出登录</button>
+  </div>
+
+</div>
+
+<script src="supabase.js"></script>
+<script>
+  // ===== 项目配置（这两串就是你建项目时拿到的那两个）=====
+  var SUPABASE_URL = 'https://ucjgcybsvrkfgkszcygq.supabase.co';
+  var ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjamdjeWJzdnJrZmdrc3pjeWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDY5ODIsImV4cCI6MjEwNzQ4Mjk4Mn0.tMtklRCxDjtO5Lb5cMjqg_LeB5cUxfVOZxxwNRO0aDw';
+
+  var sb = window.supabase.createClient(SUPABASE_URL, ANON_KEY);
+
+  var $ = function (id) { return document.getElementById(id); };
+  var msg = $('msg');
+
+  function showMsg(text, ok) {
+    msg.textContent = text;
+    msg.className = 'msg ' + (ok ? 'ok' : 'err');
+  }
+
+  function showLogin() {
+    $('login-view').style.display = 'block';
+    $('home-view').style.display = 'none';
+  }
+  function showHome(user) {
+    $('login-view').style.display = 'none';
+    $('home-view').style.display = 'block';
+    $('u-email').textContent = user.email || '—';
+    // 读自己的档案，拿姓名和身份
+    sb.from('profiles').select('role, name').eq('id', user.id).single()
+      .then(function (res) {
+        if (res.error) {
+          $('u-name').textContent = '（读取失败）';
+          $('u-role').textContent = '未知';
+          return;
+        }
+        $('u-name').textContent = res.data.name || '（未填）';
+        $('u-role').textContent = res.data.role === 'therapist' ? '视训师' : '家长';
+      });
+  }
+
+  // 注册
+  async function signUp() {
+    var email = $('email').value.trim();
+    var password = $('password').value;
+    if (!email || !password) { showMsg('请填写邮箱和密码'); return; }
+    showMsg('正在注册……');
+    var res = await sb.auth.signUp({ email: email, password: password });
+    if (res.error) { showMsg('注册失败：' + res.error.message); return; }
+    if (res.data.session) {
+      showMsg('注册成功，已自动登录', true);
+      showHome(res.data.user);
+    } else {
+      showMsg('注册成功！请点「登录」进入', true);
+    }
+  }
+
+  // 登录
+  async function signIn() {
+    var email = $('email').value.trim();
+    var password = $('password').value;
+    if (!email || !password) { showMsg('请填写邮箱和密码'); return; }
+    showMsg('正在登录……');
+    var res = await sb.auth.signInWithPassword({ email: email, password: password });
+    if (res.error) { showMsg('登录失败：' + res.error.message); return; }
+    showMsg('登录成功', true);
+    showHome(res.data.user);
+  }
+
+  // 退出
+  async function signOut() {
+    await sb.auth.signOut();
+    showLogin();
+  }
+
+  $('login-btn').onclick = signIn;
+  $('signup-btn').onclick = signUp;
+  $('logout-btn').onclick = signOut;
+
+  // 启动时：如果已登录，直接显示主页
+  (async function init() {
+    var res = await sb.auth.getSession();
+    if (res.data && res.data.session) {
+      showHome(res.data.session.user);
+    }
+  })();
+</script>
+</body>
+</html>
