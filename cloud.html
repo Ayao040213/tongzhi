@@ -135,10 +135,11 @@
     state.user = user;
     await loadProfile();
     showMain();
+    home();
   }
   async function loadProfile() {
     var res = await sb.from('profiles').select('role, name, family_id').eq('id', state.user.id).single();
-    if (res.error) { state.profile = { role: 'parent', name: '', family_id: null }; return; }
+    if (res.error || !res.data) { state.profile = { role: 'parent', name: '', family_id: null }; return; }
     state.profile = res.data;
   }
   function renderTopbar() {
