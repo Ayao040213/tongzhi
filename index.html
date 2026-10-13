@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>明眸训练 · 家庭视觉训练</title>
+<title>瞳治视觉训练助手 · 家庭视觉训练</title>
 <style>
   /* ============ 全局 ============ */
   :root{
@@ -179,7 +179,7 @@
   <!-- ========== 1. 首页 / 今日计划 ========== -->
   <section id="screen-home" class="screen active">
     <div class="topbar">
-      <div class="brand">明眸训练</div>
+      <div class="brand">瞳治视觉训练助手</div>
       <div class="sub">家庭视觉训练 · 双端 v0.7</div>
       <div class="child">
         <span class="name" id="childName">小宇</span>
@@ -564,7 +564,7 @@
 
 <script>
 /* =====================================================================
- *  明眸训练 · 家庭视觉训练 v0.7 —— 方案 A（零后端）
+ *  瞳治视觉训练助手 · 家庭视觉训练 v0.7 —— 方案 A（零后端）
  *  九个方位（8 方位 + 正视），顺序：右眼 → 左眼 → 双眼
  *    右眼 / 左眼 = 正方形格子 → 拼成大正方形
  *    双眼 = 长方形格子 → 拼成大长方形
@@ -833,7 +833,7 @@ let liveUrls = [];
 function openVideoDb(){
   if(!('indexedDB' in window)) return Promise.reject(new Error('no idb'));
   return new Promise((res, rej) => {
-    const req = indexedDB.open('mingmu_videos', 1);
+    const req = indexedDB.open('tongzhi_videos', 1);
     req.onupgradeneeded = e => {
       const db = e.target.result;
       if(!db.objectStoreNames.contains('videos')) db.createObjectStore('videos', { keyPath:'id', autoIncrement:true });
@@ -1278,7 +1278,7 @@ function renderRxProjects(){
 
 function rxToText(p){
   const c = childById(p.childId);
-  return '【明眸训练 · 训练处方】\n' +
+  return '【瞳治视觉训练助手 · 训练处方】\n' +
     '孩子：' + (c ? c.name : '') + '\n' +
     '日期：' + p.date + '\n' +
     p.projects.map((pr, i) => (i+1) + '. ' + pr.title + '：' + pr.param).join('\n') +
