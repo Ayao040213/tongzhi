@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>明眸训练 · 家庭视觉训练</title>
+<style>
+  /* ============ 全局 ============ */
+  :root{
+    --bg:#f4f8fa; --card:#fff; --primary:#1a7a8c; --primary-dark:#0f5a68;
+    --accent:#f2a33c; --success:#2e9e6b; --bad:#e05a4f; --text:#1f2d33;
+    --muted:#6b7a82; --line:#e3ebef;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; padding:0; }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.6;
+  }
+  #app{ max-width:460px; margin:0 auto; min-height:100vh; position:relative; background:var(--bg); }
+  .screen{ display:none; padding:0 0 40px; }
+  .screen.active{ display:block; animation:fadeIn .25s ease; }
+  @keyframes fadeIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;} }
+
+  /* ============ 顶部栏 ============ */
+  .topbar{
+    background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+    color:#fff; padding:22px 20px 20px; border-radius:0 0 22px 22px;
+  }
+  .topbar .back{ display:inline-block; margin-bottom:10px; font-size:14px; opacity:.9; cursor:pointer; }
+  .topbar .brand{ font-size:20px; font-weight:700; letter-spacing:1px; }
+  .topbar .sub{ font-size:13px; opacity:.85; margin-top:2px; }
+  .topbar .child{ margin-top:14px; display:flex; align-items:baseline; gap:8px; }
+  .topbar .child .name{ font-size:26px; font-weight:700; }
+  .topbar .child .date{ font-size:13px; opacity:.85; }
+
+  /* ============ 计划卡片 ============ */
+  .section-title{ padding:18px 20px 6px; font-size:14px; color:var(--muted); }
+  .plan-card{
+    background:var(--card); margin:10px 16px; border-radius:16px; padding:16px;
+    box-shadow:0 2px 10px rgba(20,60,80,.06);
+  }
+  .plan-card .row1{ display:flex; align-items:center; gap:14px; }
+  .plan-card .icon{
+    width:46px; height:46px; border-radius:12px; background:#fff2e0;
+    display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0;
+  }
+  .plan-card .info{ flex:1; }
+  .plan-card .info .title{ font-size:16px; font-weight:600; }
+  .plan-card .info .meta{ font-size:13px; color:var(--muted); margin-top:2px; }
+  .tag-lock{ font-size:12px; color:var(--muted); }
+  .plan-actions{ display:flex; gap:10px; margin-top:14px; }
+  .pa-btn{ flex:1; border:none; border-radius:12px; padding:12px 0; font-size:15px; font-weight:600; cursor:pointer; }
+  .pa-btn.ghost{ background:#eef4f6; color:var(--primary); }
+  .pa-btn.primary{ background:var(--primary); color:#fff; }
+  .pa-btn:active{ transform:scale(.98); }
+
+  /* ============ 通用大按钮 ============ */
+  .big-btn{
+    display:block; width:calc(100% - 32px); margin:16px 16px 0;
+    border:none; border-radius:16px; padding:16px; font-size:17px; font-weight:700; color:#fff;
+    background:linear-gradient(135deg,var(--primary),var(--primary-dark)); cursor:pointer;
+  }
+  .big-btn:active{ transform:scale(.99); }
+  .big-btn:disabled{ background:#c6d4da; }
+  .big-btn.ghost{ background:#fff; color:var(--primary); border:1px solid var(--primary); }
+
+  /* ============ 内容块 ============ */
+  .block{ background:var(--card); margin:12px 16px; border-radius:16px; padding:16px 18px; box-shadow:0 2px 10px rgba(20,60,80,.06); }
+  .block h3{ margin:0 0 10px; font-size:15px; }
+  .block ol, .block ul{ margin:0; padding-left:20px; }
+  .block li{ font-size:14px; margin-bottom:8px; }
+  .block .tip{ font-size:13px; color:var(--muted); background:#f7fafb; border-radius:10px; padding:10px 12px; margin-top:8px; }
+
+  /* ============ 阶段切换（单眼 / 双眼） ============ */
+  .stage-tabs{ display:flex; gap:8px; padding:12px 16px 0; }
+  .stage-tab{ flex:1; border:none; border-radius:12px; padding:11px 0; font-size:15px; font-weight:600; cursor:pointer; background:#eef4f6; color:var(--muted); }
+  .stage-tab.active{ background:var(--primary); color:#fff; }
+
+  /* ============ 拍照九宫格 ============ */
+  .photo-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; padding:0 16px; margin-top:12px; }
+  .photo-cell{
+    position:relative; aspect-ratio:1/1; border-radius:12px; border:2px dashed #c7d7dd;
+    background:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden;
+  }
+  .photo-grid.wide .photo-cell{ aspect-ratio:4/3; }   /* 双眼：长方形格子 */
+  .photo-cell .pc-dir{
+    position:absolute; top:0; left:0; right:0; z-index:2;
+    background:rgba(26,122,140,.85); color:#fff; font-size:12px; font-weight:700; text-align:center; padding:3px 0;
+  }
+  .photo-cell .pc-body{ width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
+  .photo-cell .pc-add{ font-size:30px; color:var(--muted); }
+  .photo-cell .pc-hint{ font-size:11px; color:var(--muted); }
+  .photo-cell img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .photo-cell.filled{ border-style:solid; border-color:var(--success); }
+
+  .photo-status{ text-align:center; font-size:13px; color:var(--muted); margin-top:12px; }
+  .clear-btn{ display:block; margin:8px auto 0; border:none; background:none; color:var(--muted); font-size:13px; cursor:pointer; text-decoration:underline; }
+
+  /* ============ 结果页 ============ */
+  .result-wrap{ padding:0 16px; }
+  .result-img{ display:block; width:100%; border-radius:16px; box-shadow:0 4px 20px rgba(20,60,80,.15); }
+  .share-row{ display:flex; gap:10px; padding:0 16px; margin-top:14px; }
+  .share-btn{ flex:1; border:none; border-radius:14px; padding:14px 0; font-size:16px; font-weight:700; cursor:pointer; color:#fff; }
+  .share-btn.save{ background:var(--success); }
+  .share-btn.share{ background:var(--primary); }
+  .share-btn:active{ transform:scale(.97); }
+
+  .footnote{ text-align:center; font-size:12px; color:var(--muted); padding:20px 16px 0; }
+
+  /* ============ 身份切换 ============ */
+  .role-bar{ display:flex; align-items:center; gap:8px; margin:14px 16px 0; background:var(--card); border-radius:14px; padding:8px; box-shadow:0 2px 10px rgba(20,60,80,.06); }
+  .role-bar .lbl{ font-size:13px; color:var(--muted); padding:0 6px; white-space:nowrap; }
+  .role-bar button{ flex:1; border:none; border-radius:10px; padding:9px 0; font-size:14px; font-weight:600; cursor:pointer; background:#eef4f6; color:var(--muted); }
+  .role-bar button.active{ background:var(--primary); color:#fff; }
+
+  /* ============ 指导视频 ============ */
+  .video-list{ display:flex; flex-direction:column; gap:10px; }
+  .video-item{ border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#fff; }
+  .video-item video{ display:block; width:100%; max-height:240px; background:#000; }
+  .video-item .v-meta{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px; font-size:13px; color:var(--muted); }
+  .video-item .v-meta span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .video-item .v-del{ flex-shrink:0; border:none; background:none; color:var(--bad); cursor:pointer; font-size:13px; }
+  .video-empty{ font-size:13px; color:var(--muted); text-align:center; padding:6px 0; }
+  .video-add-row{ display:flex; gap:8px; margin-top:12px; }
+  .small-btn{ flex:1; border:none; border-radius:12px; padding:11px 0; font-size:14px; font-weight:600; cursor:pointer; }
+  .small-btn.ghost{ background:#eef4f6; color:var(--primary); }
+  .small-btn.primary{ background:var(--primary); color:#fff; }
+  .small-btn:active{ transform:scale(.98); }
+
+  /* ============ 马斯登球 · 录训练视频 ============ */
+  .rec-card{ background:var(--card); margin:12px 16px; border-radius:18px; padding:16px; box-shadow:0 2px 10px rgba(20,60,80,.06); }
+  .rec-head{ display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+  .rec-num{ width:30px; height:30px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px; flex-shrink:0; }
+  .rec-title{ font-size:17px; font-weight:700; }
+  .rec-desc{ font-size:13px; color:var(--muted); margin-bottom:12px; padding-left:40px; }
+  .rec-slot{ position:relative; border-radius:14px; overflow:hidden; min-height:170px; background:#eef4f6; display:flex; align-items:center; justify-content:center; }
+  .rec-empty{ text-align:center; color:var(--muted); cursor:pointer; padding:28px 20px; width:100%; }
+  .rec-empty .ic{ font-size:40px; line-height:1; }
+  .rec-empty .t{ font-size:14px; font-weight:600; color:var(--primary); margin-top:8px; }
+  .rec-slot video{ display:block; width:100%; max-height:250px; background:#000; }
+  .rec-actions{ display:flex; gap:8px; margin-top:10px; }
+  .rec-re, .rec-save{ flex:1; border:1px solid var(--line); background:#fff; color:var(--primary); border-radius:12px; padding:10px 0; font-size:14px; font-weight:600; cursor:pointer; }
+  .rec-save{ color:var(--success); border-color:var(--success); }
+
+  /* ============ 周边训练 · 记录 ============ */
+  .per-date{ text-align:center; padding:18px 16px 2px; display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .per-date label{ font-size:13px; color:var(--muted); }
+  .per-date-input{ border:1px solid var(--line); border-radius:12px; padding:10px 14px; font-size:15px; color:var(--text); background:var(--card); text-align:center; }
+  .per-stats{ display:flex; gap:10px; padding:10px 16px 0; }
+  .per-stats > div{ flex:1; background:var(--card); border-radius:16px; padding:18px 8px; text-align:center; box-shadow:0 2px 10px rgba(20,60,80,.06); }
+  .per-num{ font-size:38px; font-weight:800; line-height:1.1; }
+  .per-hit .per-num{ color:var(--success); }
+  .per-total .per-num{ color:var(--primary); }
+  .per-rate .per-num{ color:var(--accent); }
+  .per-label{ font-size:12px; color:var(--muted); margin-top:4px; }
+  .per-btns{ display:flex; gap:10px; padding:0 16px; margin-top:14px; }
+  .per-btn{ flex:1; border:none; border-radius:16px; padding:18px 0; font-size:18px; font-weight:700; color:#fff; cursor:pointer; }
+  .per-btn.hit{ background:var(--success); }
+  .per-btn.miss{ background:var(--bad); }
+  .per-btn:active{ transform:scale(.98); }
+  .per-actions{ display:flex; justify-content:center; gap:24px; margin-top:14px; }
+  .per-actions button{ border:none; background:none; color:var(--muted); font-size:14px; cursor:pointer; text-decoration:underline; }
+
+  /* ============ 视训师端 ============ */
+  .empty-hint{ text-align:center; font-size:13px; color:var(--muted); padding:20px 16px; }
+  .chev{ font-size:22px; color:var(--muted); }
+  .rx-check{ display:flex; align-items:center; gap:8px; font-size:15px; font-weight:600; cursor:pointer; }
+  .rx-check input{ width:18px; height:18px; }
+  .rx-param{ width:100%; margin-top:10px; border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:14px; color:var(--text); background:#f7fafb; }
+  .rx-note{ width:100%; min-height:70px; border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:14px; color:var(--text); background:#f7fafb; resize:vertical; font-family:inherit; }
+  .rx-preview{ white-space:pre-wrap; font-size:14px; line-height:1.7; background:#f7fafb; border-radius:10px; padding:12px; color:var(--text); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ========== 1. 首页 / 今日计划 ========== -->
+  <section id="screen-home" class="screen active">
+    <div class="topbar">
+      <div class="brand">明眸训练</div>
+      <div class="sub">家庭视觉训练 · 双端 v0.7</div>
+      <div class="child">
+        <span class="name" id="childName">小宇</span>
+        <span class="date" id="todayDate"></span>
+      </div>
+    </div>
+
+    <div class="role-bar">
+      <span class="lbl">当前身份</span>
+      <button data-role="parent" class="active">👨‍👩‍👧 家长</button>
+      <button data-role="trainer">🧑‍⚕️ 视训师</button>
+    </div>
+
+    <div id="parentHome">
+      <div class="section-title">今日训练计划</div>
+
+    <div class="plan-card">
+      <div class="row1">
+        <div class="icon">👁</div>
+        <div class="info">
+          <div class="title">眼肌拉伸 · 眼位回传</div>
+          <div class="meta">右眼 → 左眼 → 双眼，各拍 9 张 → 拼图发视训师</div>
+        </div>
+      </div>
+      <div class="plan-actions">
+        <button class="pa-btn ghost" id="goTutorial">看教程</button>
+        <button class="pa-btn primary" id="goPhoto">拍眼位照</button>
+      </div>
+    </div>
+
+    <div class="plan-card">
+      <div class="row1">
+        <div class="icon">⚽</div>
+        <div class="info">
+          <div class="title">马斯登球追随</div>
+          <div class="meta">追随 · 反 · 停 · 录三段发视训师</div>
+        </div>
+      </div>
+      <div class="plan-actions">
+        <button class="pa-btn ghost" id="goMarsdenTutorial">看教程</button>
+        <button class="pa-btn primary" id="goMarsdenRecord">录训练视频</button>
+      </div>
+    </div>
+
+    <div class="plan-card">
+      <div class="row1">
+        <div class="icon">🟡</div>
+        <div class="info">
+          <div class="title">周边训练</div>
+          <div class="meta">金银球 · 余光 · 记命中次数</div>
+        </div>
+      </div>
+      <div class="plan-actions">
+        <button class="pa-btn ghost" id="goPeripheralTutorial">看教程</button>
+        <button class="pa-btn primary" id="goPeripheralRecord">开始记录</button>
+      </div>
+    </div>
+
+    <div class="footnote">视训师身份可在「看教程」里添加指导视频（本地演示）；家长跨设备查看需方案 B 后端。</div>
+    </div>
+
+    <div id="trainerHome" style="display:none">
+      <div class="section-title">我的孩子</div>
+      <div id="childrenList"></div>
+      <button class="big-btn" id="addChildBtn">＋ 添加孩子</button>
+      <div class="footnote">指导视频在各训练项目的「看教程」里上传；家长回传数据等方案 B 后在此查看。</div>
+    </div>
+  </section>
+
+  <!-- ========== 2. 图文教程页 ========== -->
+  <section id="screen-tutorial" class="screen">
+    <div class="topbar">
+      <div class="back" onclick="showScreen('screen-home')">← 返回</div>
+      <div class="brand">眼肌拉伸 · 图文教程</div>
+      <div class="sub">家长自己带练，跟着做就行</div>
+    </div>
+
+    <div class="block">
+      <h3>🎯 准备工具</h3>
+      <ul>
+        <li>一个注视物：<b>沃夫棒最佳</b>（也可用铅笔、棒棒糖代替）</li>
+        <li>孩子坐在椅子上，一只手放在耳朵上（固定头部）</li>
+      </ul>
+    </div>
+
+    <div class="block">
+      <h3>📋 怎么练</h3>
+      <ol>
+        <li>家长拿注视物，从近处<b>慢慢向外移</b>，找到孩子<b>能看到的最远位置（极限）</b></li>
+        <li>让孩子盯住注视物 <b>5 秒</b>，再用食指<b>点击</b>它</li>
+        <li>8 个方位：上 → 下 → 左 → 右 → 左上 → 左下 → 右上 → 右下</li>
+        <li>另加「<b>正视</b>」：眼睛自然看<b>正前方</b>（这张是基准）</li>
+      </ol>
+    </div>
+
+    <div class="block">
+      <h3>📷 怎么拍眼位照（右眼 → 左眼 → 双眼）</h3>
+      <ol>
+        <li><b>右眼</b>：遮住左眼，孩子看 8 个方位各拍一张 + 正视 1 张 = <b>9 张</b></li>
+        <li><b>左眼</b>：遮住右眼，同样拍 <b>9 张</b></li>
+        <li><b>双眼</b>：双眼一起看，同样拍 <b>9 张</b></li>
+        <li>每个方位：让孩子<b>看向该方向的最远处</b>（眼珠转到极限），家长从<b>正前方</b>拍一张能看清眼睛的照片</li>
+        <li>三组各自拍满 9 张 → 分别生成一张图 → 发给视训师</li>
+      </ol>
+      <div class="tip">🧭 方位以<b>孩子</b>的左右为准（不是拿手机的你的左右）。</div>
+    </div>
+
+    <div class="block">
+      <h3>⚠️ 顺序提示</h3>
+      <ul>
+        <li>顺序：<b>右眼 → 左眼 → 双眼</b></li>
+        <li>单眼时遮住另一只眼</li>
+      </ul>
+    </div>
+
+    <div class="block video-block" data-section="eye">
+      <h3>🎬 指导视频</h3>
+      <div class="video-list"></div>
+      <div class="video-empty">视训师还没有上传指导视频</div>
+      <div class="video-add-row" style="display:none">
+        <button class="small-btn ghost js-video-url">🔗 粘贴视频链接</button>
+        <button class="small-btn primary js-video-file">📁 上传本地视频</button>
+      </div>
+      <div class="tip video-tip"></div>
+    </div>
+
+    <button class="big-btn" id="goPhotoFromTutorial">去拍眼位照</button>
+  </section>
+
+  <!-- ========== 3. 拍照页 ========== -->
+  <section id="screen-photo" class="screen">
+    <div class="topbar">
+      <div class="back" onclick="showScreen('screen-home')">← 返回</div>
+      <div class="brand">拍眼位照</div>
+      <div class="sub">右眼 → 左眼 → 双眼，各拍 9 张</div>
+    </div>
+
+    <div class="stage-tabs">
+      <button class="stage-tab active" data-stage="right">① 右眼</button>
+      <button class="stage-tab" data-stage="left">② 左眼</button>
+      <button class="stage-tab" data-stage="double">③ 双眼</button>
+    </div>
+
+    <div class="photo-grid square" id="photoGrid"></div>
+    <div class="photo-status" id="photoStatus">右眼：已拍 0 / 9</div>
+    <button class="clear-btn" id="clearBtn">清空本组重拍</button>
+    <button class="big-btn" id="genBtn" disabled>生成右眼眼位图</button>
+    <div class="footnote">点格子拍照或从相册选图；点已拍的照片可重拍。</div>
+  </section>
+
+  <!-- ========== 4. 结果页 ========== -->
+  <section id="screen-result" class="screen">
+    <div class="topbar">
+      <div class="back" onclick="showScreen('screen-photo')">← 返回重拍</div>
+      <div class="brand" id="resultTitle">眼位图已生成</div>
+      <div class="sub">保存后微信发给视训师</div>
+    </div>
+    <div class="result-wrap">
+      <img class="result-img" id="resultImg" alt="眼位图">
+    </div>
+    <div class="share-row">
+      <button class="share-btn save" id="saveBtn">保存图片</button>
+      <button class="share-btn share" id="shareBtn">分享给视训师</button>
+    </div>
+    <button class="big-btn ghost" id="backHomeFromResult">返回今日计划</button>
+    <div class="footnote">若按钮保存不了：<b>长按上方图片</b> → 保存到相册 → 再微信发给视训师。</div>
+  </section>
+
+  <!-- ========== 5. 马斯登球 · 图文教程 ========== -->
+  <section id="screen-marsden-tutorial" class="screen">
+    <div class="topbar">
+      <div class="back" onclick="showScreen('screen-home')">← 返回</div>
+      <div class="brand">马斯登球追随 · 图文教程</div>
+      <div class="sub">家长甩球，孩子练眼</div>
+    </div>
+
+    <div class="block">
+      <h3>🎯 准备</h3>
+      <ul>
+        <li>马斯登球挂起来，高度<b>正好在孩子眼睛</b>的高度</li>
+        <li>家长站球旁，<b>摆动球</b>，让它左右/前后晃</li>
+      </ul>
+    </div>
+
+    <div class="block">
+      <h3>📋 三个口令</h3>
+      <ol>
+        <li><b>追随</b>：头不动，眼睛追随球的运动</li>
+        <li><b>反</b>：眼球运动方向与球<b>相反</b></li>
+        <li><b>停</b>：眼睛看到哪，喊「停」，就停在那里</li>
+      </ol>
+      <div class="tip">🔔 附加：每次球到顶端、马上摆下来时，<b>孩子喊「到」</b>。</div>
+    </div>
+
+    <div class="block">
+      <h3>📷 要录的三段小视频</h3>
+      <ol>
+        <li><b>跟随眼动</b>：家长摆球，孩子眼睛追随球动，录一小段</li>
+        <li><b>反眼动</b>：家长摆球，孩子眼球向反方向动，录一小段</li>
+        <li><b>喊停</b>：家长突然喊「停」，录孩子眼球停住的状态</li>
+      </ol>
+      <div class="tip">每段十几秒即可；录完三小段，一起「上传给视训师」。</div>
+    </div>
+
+    <div class="block video-block" data-section="marsden">
+      <h3>🎬 指导视频</h3>
+      <div class="video-list"></div>
+      <div class="video-empty">视训师还没有上传指导视频</div>
+      <div class="video-add-row" style="display:none">
+        <button class="small-btn ghost js-video-url">🔗 粘贴视频链接</button>
+        <button class="small-btn primary js-video-file">📁 上传本地视频</button>
+      </div>
+      <div class="tip video-tip"></div>
+    </div>
+
+    <button class="big-btn" id="goMarsdenRecordFromTutorial">去录训练视频</button>
+  </section>
+
+  <!-- ========== 6. 马斯登球 · 录训练视频 ========== -->
+  <section id="screen-marsden-record" class="screen">
+    <div class="topbar">
+      <div class="back" onclick="showScreen('screen-home')">← 返回</div>
+      <div class="brand">马斯登球 · 录训练视频</div>
+      <div class="sub">录三段小视频 → 上传给视训师</div>
+    </div>
+
+    <div class="section-title">按三个口令，各录一小段</div>
+
+    <div id="marsdenSlots"></div>
+
+    <button class="big-btn" id="uploadMarsdenBtn" disabled>上传给视训师</button>
+    <div class="footnote">若微信提示「分享失败」：用每段视频下方的「💾 保存」存到手机，再打开微信手动发给视训师。App 内真上传云端要等方案 B。</div>
+  </section>
+
+  <!-- ========== 7. 周边训练 · 图文教程 ========== -->
+  <section id="screen-peripheral-tutorial" class="screen">
+    <div class="topbar">
+      <div class="back" onclick="showScreen('screen-home')">← 返回</div>
+      <div class="brand">周边训练 · 图文教程</div>
+      <div class="sub">金银两球 · 练余光</div>
+    </div>
+
+    <div class="block">
+      <h3>🎯 准备</h3>
+      <ul>
+        <li>金银两球（一金一银），家长<b>两手各拿一个</b></li>
+        <li>在孩子眼前<b>不规则运动</b></li>
+      </ul>
+    </div>
+
+    <div class="block">
+      <h3>📋 怎么练</h3>
+      <ol>
+        <li>让孩子先<b>看金球</b>，然后停下</li>
+        <li>让孩子用<b>余光</b>去点银球，金银换着来</li>
+        <li>点中一次，就在记录页点「命中 +1」</li>
+      </ol>
+      <div class="tip">🔑 命中次数，就是训练师判断「周边视野有没有进步」的关键数据。</div>
+    </div>
+
+    <div class="block">
+      <h3>📊 怎么记录</h3>
+      <ol>
+        <li>孩子点中 → 点「✅ 命中 +1」</li>
+        <li>没点中 → 点「❌ 未中 +1」</li>
+        <li>练完点「分享给视训师」，记录会自动带上<b>今天日期</b></li>
+      </ol>
+    </div>
+
+    <div class="block video-block" data-section="peripheral">
+      <h3>🎬 指导视频</h3>
+      <div class="video-list"></div>
+      <div class="video-empty">视训师还没有上传指导视频</div>
+      <div class="video-add-row" style="display:none">
+        <button class="small-btn ghost js-video-url">🔗 粘贴视频链接</button>
+        <button class="small-btn primary js-video-file">📁 上传本地视频</button>
+      </div>
+      <div class="tip video-tip"></div>
+    </div>
+
+    <button class="big-btn" id="goPeripheralRecordFromTutorial">去记录</button>
+  </section>
+
+  <!-- ========== 8. 周边训练 · 记录 ========== -->
+  <section id="screen-peripheral-record" class="screen">
+    <div class="topbar">
+      <div class="back" onclick="showScreen('screen-home')">← 返回</div>
+      <div class="brand">周边训练 · 记录</div>
+      <div class="sub">记命中次数</div>
+    </div>
+
+    <div class="per-date">
+      <label>训练日期</label>
+      <input type="date" id="perDateInput" class="per-date-input">
+    </div>
+
+    <div class="per-stats">
+      <div class="per-hit">
+        <div class="per-num" id="perHits">0</div>
+        <div class="per-label">命中次数</div>
+      </div>
+      <div class="per-total">
+        <div class="per-num" id="perTotal">0</div>
+        <div class="per-label">总次数</div>
+      </div>
+      <div class="per-rate">
+        <div class="per-num" id="perRate">—</div>
+        <div class="per-label">命中率</div>
+      </div>
+    </div>
+
+    <div class="per-btns">
+      <button class="per-btn hit" id="perHitBtn">✅ 命中 +1</button>
+      <button class="per-btn miss" id="perMissBtn">❌ 未中 +1</button>
+    </div>
+
+    <div class="per-actions">
+      <button id="perUndoBtn">↩ 撤销上一步</button>
+      <button id="perClearBtn">🔄 清零</button>
+    </div>
+
+    <button class="big-btn" id="sharePerBtn" disabled>分享记录给视训师</button>
+    <button class="big-btn ghost" id="copyPerBtn" disabled>📋 复制记录</button>
+    <div class="footnote">每天的记录分开保存；选日期可补记或查看过去某天。</div>
+  </section>
+
+  <!-- ========== 9. 视训师 · 孩子档案 ========== -->
+  <section id="screen-trainer-child" class="screen">
+    <div class="topbar">
+      <div class="back" onclick="showScreen('screen-home')">← 返回</div>
+      <div class="brand" id="childProfileName">孩子档案</div>
+      <div class="sub" id="childProfileNote"></div>
+    </div>
+
+    <div class="section-title">训练处方</div>
+    <div id="rxList"></div>
+
+    <button class="big-btn" id="newRxBtn">＋ 新建处方</button>
+
+    <div class="block">
+      <h3>📥 家长回传</h3>
+      <div class="tip">眼位图 / 训练视频 / 命中记录——方案 B（后端）上线后在这里直接查看；当前零后端，家长通过微信发给你。</div>
+    </div>
+  </section>
+
+  <!-- ========== 10. 视训师 · 新建处方 ========== -->
+  <section id="screen-trainer-prescription" class="screen">
+    <div class="topbar">
+      <div class="back" onclick="showScreen('screen-trainer-child')">← 返回</div>
+      <div class="brand">新建处方</div>
+      <div class="sub" id="rxChildLabel"></div>
+    </div>
+
+    <div class="section-title">选择训练项目</div>
+    <div id="rxProjects"></div>
+
+    <div class="block">
+      <h3>📝 注意事项</h3>
+      <textarea id="rxNote" class="rx-note" placeholder="如：单眼时遮另一只眼；练完拍照回传…"></textarea>
+    </div>
+
+    <button class="big-btn" id="genRxBtn">生成处方卡</button>
+
+    <div class="block" id="rxPreviewBlock" style="display:none">
+      <h3>📄 处方卡预览</h3>
+      <div class="rx-preview" id="rxPreview"></div>
+    </div>
+
+    <div class="share-row">
+      <button class="share-btn save" id="shareRxBtn" style="display:none">分享给家长</button>
+      <button class="share-btn share" id="copyRxBtn" style="display:none">复制</button>
+    </div>
+    <button class="big-btn ghost" id="saveRxBtn" style="display:none">保存到档案</button>
+  </section>
+
+</div>
+
+<input type="file" id="fileInput" accept="image/*" style="position:absolute; left:-9999px; width:1px; height:1px;">
+<input type="file" id="videoInput" accept="video/*" style="position:absolute; left:-9999px; width:1px; height:1px;">
+<input type="file" id="marsdenVideoInput" accept="video/*" style="position:absolute; left:-9999px; width:1px; height:1px;">
+
+<script>
+/* =====================================================================
+ *  明眸训练 · 家庭视觉训练 v0.7 —— 方案 A（零后端）
+ *  九个方位（8 方位 + 正视），顺序：右眼 → 左眼 → 双眼
+ *    右眼 / 左眼 = 正方形格子 → 拼成大正方形
+ *    双眼 = 长方形格子 → 拼成大长方形
+ * ===================================================================== */
+
+const CHILD_NAME = '小宇';
+
+/* 九个方位，以及各自在 3×3 九宫格里的位置（col/row 从 0 起） */
+const DIRS = [
+  { name:'上',   col:1, row:0 },
+  { name:'下',   col:1, row:2 },
+  { name:'左',   col:0, row:1 },
+  { name:'右',   col:2, row:1 },
+  { name:'左上', col:0, row:0 },
+  { name:'左下', col:0, row:2 },
+  { name:'右上', col:2, row:0 },
+  { name:'右下', col:2, row:2 },
+  { name:'正视', col:1, row:1 },
+];
+
+/* 三个阶段：右眼 / 左眼（正方形格）、双眼（长方形格，比单眼宽） */
+const STAGES = [
+  { id:'right',  label:'右眼', cellW:560, cellH:560 },
+  { id:'left',   label:'左眼', cellW:560, cellH:560 },
+  { id:'double', label:'双眼', cellW:560, cellH:420 },
+];
+
+let stage = 'right';
+const photos = {};                          // photos[阶段][方位] = {url,file}，按需创建
+let pendingDir = null;
+
+const $ = id => document.getElementById(id);
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+function stageCfg(){ return STAGES.find(s => s.id === stage); }
+function stageLabel(){ return stageCfg().label; }
+function curPhotos(){ return photos[stage] || (photos[stage] = {}); }
+
+/* ---------- 拍照九宫格 ---------- */
+function buildGrid(){
+  const grid = $('photoGrid');
+  grid.className = 'photo-grid ' + (stage === 'double' ? 'wide' : 'square');
+  grid.innerHTML = '';
+  DIRS.forEach(d => {
+    const cell = document.createElement('div');
+    cell.className = 'photo-cell';
+    cell.style.gridColumn = d.col + 1;
+    cell.style.gridRow    = d.row + 1;
+    cell.innerHTML = '<div class="pc-dir">' + d.name + '</div>' +
+                     '<div class="pc-body"><span class="pc-add">📷</span><span class="pc-hint">拍照</span></div>';
+    cell.addEventListener('click', () => pickPhoto(d.name));
+    grid.appendChild(cell);
+  });
+  DIRS.forEach(d => { if(curPhotos()[d.name]) renderThumb(d.name); });
+  refreshStatus();
+}
+
+function findCell(dir){
+  const cells = $('photoGrid').querySelectorAll('.photo-cell');
+  return [...cells].find(c => c.querySelector('.pc-dir') && c.querySelector('.pc-dir').textContent === dir);
+}
+
+function renderThumb(dir){
+  const cell = findCell(dir);
+  const p = curPhotos()[dir];
+  if(cell && p){
+    cell.classList.add('filled');
+    cell.innerHTML = '<div class="pc-dir">' + dir + '</div><img src="' + p.url + '" alt="' + dir + '">';
+  }
+}
+
+function pickPhoto(dir){
+  pendingDir = dir;
+  const input = $('fileInput');
+  input.value = '';                 // 清空，允许重选同一张照片
+  input.click();
+}
+
+$('fileInput').addEventListener('change', () => {
+  const f = $('fileInput').files[0];
+  if(!f || !pendingDir) return;
+  const dir = pendingDir;
+  const p = curPhotos();
+  const old = p[dir];
+  if(old && old.url) URL.revokeObjectURL(old.url);
+  p[dir] = { url: URL.createObjectURL(f), file: f };
+  renderThumb(dir);
+  refreshStatus();
+});
+
+function refreshStatus(){
+  const n = DIRS.filter(d => curPhotos()[d.name]).length;
+  const left = 9 - n;
+  $('photoStatus').textContent = stageLabel() + '：已拍 ' + n + ' / 9' + (n < 9 ? '（还差 ' + left + ' 张，缺的会标「缺」）' : '，可以生成啦');
+  $('genBtn').disabled = n < 1;      // 至少 1 张即可生成，缺的格子标「缺」
+  $('genBtn').textContent = '生成' + stageLabel() + '眼位图';
+}
+
+function clearAll(){
+  Object.values(curPhotos()).forEach(p => { if(p.url) URL.revokeObjectURL(p.url); });
+  photos[stage] = {};
+  buildGrid();
+}
+
+/* ---------- 拼图 ---------- */
+function loadImage(src){
+  return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
+}
+function canvasToBlob(canvas){
+  return new Promise(res => canvas.toBlob(res, 'image/png'));
+}
+function todayStrCN(){
+  const d = new Date();
+  return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+}
+
+async function generate(){
+  const cfg = stageCfg();
+  const CELL = cfg.cellW, CELLH = cfg.cellH;
+  const LABEL = 28, GAP = 8, PAD = 20, TITLE = 40;
+  const gw = PAD*2 + CELL*3 + GAP*2;
+  const gh = TITLE + PAD*2 + CELLH*3 + GAP*2;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = gw; canvas.height = gh;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, gw, gh);
+
+  // 顶部标题条
+  ctx.fillStyle = '#1a7a8c'; ctx.fillRect(0, 0, gw, TITLE);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 22px "PingFang SC","Microsoft YaHei",sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(CHILD_NAME + ' · 眼肌拉伸 · ' + stageLabel() + ' · ' + todayStrCN(), gw/2, TITLE/2);
+
+  for(const d of DIRS){
+    const x = PAD + d.col*(CELL+GAP);
+    const y = TITLE + PAD + d.row*(CELLH+GAP);
+    // 方位标签条
+    ctx.fillStyle = '#1a7a8c'; ctx.fillRect(x, y, CELL, LABEL);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 16px "PingFang SC","Microsoft YaHei",sans-serif';
+    ctx.fillText(d.name, x + CELL/2, y + LABEL/2);
+    // 照片（cover 裁切填满标签下方区域）
+    const imgY = y + LABEL, imgH = CELLH - LABEL;
+    const p = curPhotos()[d.name];
+    if(p){
+      const im = await loadImage(p.url);
+      const s = Math.max(CELL/im.width, imgH/im.height);
+      const w = im.width*s, h = im.height*s;
+      ctx.drawImage(im, x + (CELL-w)/2, imgY + (imgH-h)/2, w, h);
+    } else {
+      ctx.fillStyle = '#eef4f6'; ctx.fillRect(x, imgY, CELL, imgH);
+      ctx.fillStyle = '#9aa7ad'; ctx.fillText('缺', x + CELL/2, imgY + imgH/2);
+    }
+  }
+
+  return canvas;
+}
+
+let resultDataURL = '';
+let resultBlob = null;
+async function doGenerate(){
+  const btn = $('genBtn');
+  btn.disabled = true; btn.textContent = '生成中…';
+  try{
+    const canvas = await generate();
+    resultDataURL = canvas.toDataURL('image/png');
+    resultBlob = await canvasToBlob(canvas);
+    $('resultImg').src = resultDataURL;
+    $('resultTitle').textContent = stageLabel() + '眼位图已生成';
+    showScreen('screen-result');
+  }catch(e){
+    alert('生成失败，请重试');
+  }finally{
+    btn.disabled = false; btn.textContent = '生成' + stageLabel() + '眼位图';
+  }
+}
+
+function doSave(){
+  const a = document.createElement('a');
+  a.href = resultDataURL;
+  a.download = '眼位图_' + stageLabel() + '_' + todayStrCN() + '.png';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+function doShare(){
+  if(!navigator.share){
+    alert('当前浏览器不支持直接分享，请长按图片保存后微信发送。');
+    return;
+  }
+  const file = new File([resultBlob], '眼位图_' + stageLabel() + '_' + todayStrCN() + '.png', { type:'image/png' });
+  navigator.share({ files:[file], title:'眼肌拉伸 ' + stageLabel() + '眼位图' }).catch(()=>{});
+}
+
+/* ---------- 首页 ---------- */
+function refreshPlan(){
+  const d = new Date();
+  $('todayDate').textContent = (d.getMonth()+1) + ' 月 ' + d.getDate() + ' 日';
+  $('childName').textContent = CHILD_NAME;
+}
+
+/* ---------- 事件绑定 ---------- */
+$('goTutorial').addEventListener('click', () => showScreen('screen-tutorial'));
+$('goPhoto').addEventListener('click', () => showScreen('screen-photo'));
+$('goPhotoFromTutorial').addEventListener('click', () => showScreen('screen-photo'));
+$('genBtn').addEventListener('click', doGenerate);
+$('saveBtn').addEventListener('click', doSave);
+$('shareBtn').addEventListener('click', doShare);
+$('clearBtn').addEventListener('click', clearAll);
+$('backHomeFromResult').addEventListener('click', () => showScreen('screen-home'));
+
+document.querySelectorAll('.stage-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    stage = btn.dataset.stage;
+    document.querySelectorAll('.stage-tab').forEach(b => b.classList.toggle('active', b === btn));
+    buildGrid();
+  });
+});
+
+/* ---------- 身份切换：家长（TOC）/ 视训师（TOB） ---------- */
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function lsGet(k, d){ try{ const v = localStorage.getItem(k); return v === null ? d : v; }catch(e){ return d; } }
+function lsSet(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
+
+let role = lsGet('role', 'parent');
+function setRole(r){
+  role = r;
+  lsSet('role', r);
+  document.querySelectorAll('.role-bar button').forEach(b => b.classList.toggle('active', b.dataset.role === r));
+  $('parentHome').style.display = (r === 'parent') ? 'block' : 'none';
+  $('trainerHome').style.display = (r === 'trainer') ? 'block' : 'none';
+  if(r === 'trainer') renderChildren();
+  renderVideos();
+}
+function initRole(){
+  document.querySelectorAll('.role-bar button').forEach(b => b.classList.toggle('active', b.dataset.role === role));
+  $('parentHome').style.display = (role === 'parent') ? 'block' : 'none';
+  $('trainerHome').style.display = (role === 'trainer') ? 'block' : 'none';
+}
+document.querySelectorAll('.role-bar button').forEach(b => {
+  b.addEventListener('click', () => setRole(b.dataset.role));
+});
+
+/* ---------- 指导视频：零后端（本地 IndexedDB + 视频直链） ----------
+ *  训练师（TOB）能「添加/删除」；家长（TOC）只能「查看/播放」。
+ *  本地视频存 IndexedDB，仅本机浏览器有效；「视频链接」存 localStorage，
+ *  家长在别的设备也能播（视频实际存在外部链接）。真跨设备上传 → 方案 B。 */
+let liveUrls = [];
+function openVideoDb(){
+  if(!('indexedDB' in window)) return Promise.reject(new Error('no idb'));
+  return new Promise((res, rej) => {
+    const req = indexedDB.open('mingmu_videos', 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains('videos')) db.createObjectStore('videos', { keyPath:'id', autoIncrement:true });
+    };
+    req.onsuccess = e => res(e.target.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+async function dbGetVideos(){
+  try{
+    const db = await openVideoDb();
+    if(!db) return [];
+    return await new Promise((res, rej) => {
+      const tx = db.transaction('videos','readonly');
+      const rq = tx.objectStore('videos').getAll();
+      rq.onsuccess = () => res(rq.result || []);
+      rq.onerror = () => rej(rq.error);
+    });
+  }catch(e){ return []; }
+}
+async function dbAddVideo(name, blob, section){
+  try{
+    const db = await openVideoDb();
+    await new Promise((res, rej) => {
+      const tx = db.transaction('videos','readwrite');
+      tx.objectStore('videos').add({ name, blob, ts:Date.now(), section });
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+    });
+    return true;
+  }catch(e){ alert('本机浏览器不支持存视频，请改用「粘贴视频链接」。'); return false; }
+}
+async function dbDeleteVideo(id){
+  try{
+    const db = await openVideoDb();
+    await new Promise((res, rej) => {
+      const tx = db.transaction('videos','readwrite');
+      tx.objectStore('videos').delete(id);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+    });
+  }catch(e){}
+}
+function getUrlVideos(){ try{ return JSON.parse(lsGet('videoUrls','[]')); }catch(e){ return []; } }
+function addUrlVideo(name, url, section){ const l = getUrlVideos(); l.push({ id:'u' + Date.now() + Math.random().toString(36).slice(2,6), name, url, ts:Date.now(), section }); lsSet('videoUrls', JSON.stringify(l)); }
+function delUrlVideo(id){ lsSet('videoUrls', JSON.stringify(getUrlVideos().filter(v => v.id !== id))); }
+
+async function renderVideos(){
+  liveUrls.forEach(u => URL.revokeObjectURL(u)); liveUrls = [];
+  const local = await dbGetVideos();
+  const urls = getUrlVideos();
+  const isTrainer = role === 'trainer';
+
+  document.querySelectorAll('.video-block').forEach(block => {
+    const section = block.dataset.section;
+    const loc = local.filter(v => v.section === section);
+    const ur = urls.filter(v => v.section === section);
+    const hasAny = loc.length + ur.length > 0;
+
+    block.querySelector('.video-empty').style.display = hasAny ? 'none' : 'block';
+    block.querySelector('.video-add-row').style.display = isTrainer ? 'flex' : 'none';
+    block.querySelector('.video-tip').textContent = isTrainer
+      ? '零后端演示：本地视频只存本机浏览器；粘贴的「视频链接」家长可在别的设备看到。'
+      : '点开视频跟着练；视频由视训师上传。';
+
+    const delBtn = (kind, id) => isTrainer ? '<button class="v-del" data-kind="' + kind + '" data-id="' + id + '">删除</button>' : '';
+    let html = '';
+    loc.forEach(v => {
+      const u = URL.createObjectURL(v.blob); liveUrls.push(u);
+      html += '<div class="video-item"><video controls playsinline preload="metadata" src="' + u + '"></video>' +
+        '<div class="v-meta"><span>' + esc(v.name || '本地视频') + '</span>' + delBtn('local', v.id) + '</div></div>';
+    });
+    ur.forEach(v => {
+      html += '<div class="video-item"><video controls playsinline preload="metadata" src="' + esc(v.url) + '"></video>' +
+        '<div class="v-meta"><span>' + esc(v.name || '链接视频') + '</span>' + delBtn('url', v.id) + '</div></div>';
+    });
+    block.querySelector('.video-list').innerHTML = html;
+  });
+}
+
+/* 指导视频相关点击用事件委托，一处处理所有教程页 */
+let pendingVideoSection = 'eye';
+document.addEventListener('click', e => {
+  const del = e.target.closest('.v-del');
+  if(del){
+    const kind = del.dataset.kind, id = del.dataset.id;
+    (async () => { if(kind === 'local') await dbDeleteVideo(Number(id)); else delUrlVideo(id); renderVideos(); })();
+    return;
+  }
+  const fb = e.target.closest('.js-video-file');
+  if(fb){
+    const block = fb.closest('.video-block');
+    pendingVideoSection = block ? block.dataset.section : 'eye';
+    $('videoInput').click();
+    return;
+  }
+  if(e.target.closest('.js-video-url')){
+    const block = e.target.closest('.video-block');
+    const section = block ? block.dataset.section : 'eye';
+    const url = (prompt('粘贴视频直链（.mp4 等可直接播放的地址）：') || '').trim();
+    if(!url) return;
+    const name = prompt('给这个视频起个名字（可留空）：') || '指导视频';
+    addUrlVideo(name, url, section);
+    renderVideos();
+  }
+});
+
+$('videoInput').addEventListener('change', async () => {
+  const f = $('videoInput').files[0];
+  if(!f) return;
+  await dbAddVideo(f.name, f, pendingVideoSection);
+  $('videoInput').value = '';
+  renderVideos();
+});
+
+initRole();
+renderVideos();
+
+/* ============ 马斯登球 · 录训练视频（三小段回传） ============ */
+const MARSDEN_SLOTS = [
+  { key:'follow',  num:'①', title:'跟随眼动', desc:'家长摆球，孩子眼睛追随球动，录一小段' },
+  { key:'reverse', num:'②', title:'反眼动',   desc:'家长摆球，孩子眼球向反方向动，录一小段' },
+  { key:'stop',    num:'③', title:'喊停',     desc:'家长突然喊「停」，录孩子眼球停住的状态' },
+];
+const marsdenVideos = {};            // key -> {url, file}
+let pendingMarsdenSlot = null;
+
+function renderMarsdenSlots(){
+  const box = $('marsdenSlots');
+  box.innerHTML = '';
+  let count = 0;
+  MARSDEN_SLOTS.forEach(s => {
+    const v = marsdenVideos[s.key];
+    if(v) count++;
+    const card = document.createElement('div');
+    card.className = 'rec-card';
+    let slotHtml;
+    if(v){
+      slotHtml = '<div class="rec-slot"><video controls playsinline src="' + v.url + '"></video></div>' +
+                 '<div class="rec-actions">' +
+                 '<button class="rec-re" data-key="' + s.key + '">↻ 重录</button>' +
+                 '<button class="rec-save" data-key="' + s.key + '">💾 保存</button>' +
+                 '</div>';
+    } else {
+      slotHtml = '<div class="rec-slot"><div class="rec-empty" data-key="' + s.key + '">' +
+                 '<div class="ic">🎥</div><div class="t">＋ 录制这一段</div></div></div>';
+    }
+    card.innerHTML = '<div class="rec-head"><span class="rec-num">' + s.num + '</span>' +
+                     '<span class="rec-title">' + s.title + '</span></div>' +
+                     '<div class="rec-desc">' + s.desc + '</div>' + slotHtml;
+    box.appendChild(card);
+  });
+  const btn = $('uploadMarsdenBtn');
+  btn.disabled = count === 0;
+  btn.textContent = count === 0 ? '上传给视训师（先录至少一段）' : '上传给视训师（已录 ' + count + ' / 3 段）';
+}
+
+function pickMarsdenSlot(key){
+  pendingMarsdenSlot = key;
+  const input = $('marsdenVideoInput');
+  input.value = '';
+  input.click();
+}
+
+function saveMarsdenVideo(key){
+  const v = marsdenVideos[key];
+  if(!v) return;
+  const s = MARSDEN_SLOTS.find(x => x.key === key);
+  const ext = (v.file.name.match(/\.\w+$/) || ['.mp4'])[0];
+  const a = document.createElement('a');
+  a.href = v.url;
+  a.download = (s ? s.title : '视频') + '_' + CHILD_NAME + '_' + todayStrCN() + ext;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+document.addEventListener('click', e => {
+  const empty = e.target.closest('.rec-empty');
+  if(empty){ pickMarsdenSlot(empty.dataset.key); return; }
+  const re = e.target.closest('.rec-re');
+  if(re){ pickMarsdenSlot(re.dataset.key); return; }
+  const sv = e.target.closest('.rec-save');
+  if(sv){ saveMarsdenVideo(sv.dataset.key); }
+});
+
+$('marsdenVideoInput').addEventListener('change', () => {
+  const f = $('marsdenVideoInput').files[0];
+  if(!f || !pendingMarsdenSlot) return;
+  const key = pendingMarsdenSlot;
+  const old = marsdenVideos[key];
+  if(old && old.url) URL.revokeObjectURL(old.url);
+  marsdenVideos[key] = { url: URL.createObjectURL(f), file: f };
+  renderMarsdenSlots();
+});
+
+function uploadMarsden(){
+  const files = MARSDEN_SLOTS.filter(s => marsdenVideos[s.key]).map(s => {
+    const v = marsdenVideos[s.key];
+    const ext = (v.file.name.match(/\.\w+$/) || ['.mp4'])[0];
+    return new File([v.file], s.title + '_' + CHILD_NAME + '_' + todayStrCN() + ext, { type: v.file.type || 'video/mp4' });
+  });
+  if(!files.length){ alert('请先录至少一段视频'); return; }
+  if(navigator.share){
+    // 优先系统分享（部分安卓可直接发微信）；失败/不支持就退回「下载」
+    try{
+      navigator.share({ files, title:'马斯登球训练视频 · ' + CHILD_NAME }).catch(() => downloadMarsdenFiles(files));
+    }catch(e){ downloadMarsdenFiles(files); }
+  } else {
+    downloadMarsdenFiles(files);
+  }
+}
+
+function downloadMarsdenFiles(files){
+  files.forEach(f => {
+    const u = URL.createObjectURL(f);
+    const a = document.createElement('a');
+    a.href = u; a.download = f.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 30000);
+  });
+  alert('已把视频保存到本机（一般在「下载 / 文件」里）。请打开微信，把这些视频文件发给视训师。');
+}
+
+$('goMarsdenTutorial').addEventListener('click', () => showScreen('screen-marsden-tutorial'));
+$('goMarsdenRecord').addEventListener('click', () => { renderMarsdenSlots(); showScreen('screen-marsden-record'); });
+$('goMarsdenRecordFromTutorial').addEventListener('click', () => { renderMarsdenSlots(); showScreen('screen-marsden-record'); });
+$('uploadMarsdenBtn').addEventListener('click', uploadMarsden);
+
+/* ============ 周边训练 · 记录命中次数 ============ */
+function dateStr(d){
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+let perDate = dateStr(new Date());
+let perLog = getPerLog(perDate);
+
+function loadPerRecords(){ try{ return JSON.parse(lsGet('per_records','{}')); }catch(e){ return {}; } }
+function getPerLog(date){ return loadPerRecords()[date] || []; }
+function setPerLog(date, log){
+  const all = loadPerRecords();
+  all[date] = log;
+  lsSet('per_records', JSON.stringify(all));
+}
+function perHits(){ return perLog.filter(x => x === 'hit').length; }
+function perTotal(){ return perLog.length; }
+function perRate(){
+  const t = perTotal();
+  return t === 0 ? '—' : Math.round(perHits() / t * 100) + '%';
+}
+function refreshPer(){
+  $('perDateInput').value = perDate;
+  $('perHits').textContent = perHits();
+  $('perTotal').textContent = perTotal();
+  $('perRate').textContent = perRate();
+  const has = perTotal() > 0;
+  $('sharePerBtn').disabled = !has;
+  $('copyPerBtn').disabled = !has;
+}
+function switchPerDate(newDate){
+  if(!newDate) return;
+  setPerLog(perDate, perLog);   // 先存当前日期
+  perDate = newDate;
+  perLog = getPerLog(perDate);  // 再读新日期
+  refreshPer();
+}
+function perAdd(kind){
+  perLog.push(kind);
+  setPerLog(perDate, perLog);
+  refreshPer();
+}
+function perUndo(){
+  if(!perLog.length) return;
+  perLog.pop();
+  setPerLog(perDate, perLog);
+  refreshPer();
+}
+function perClear(){
+  if(!perLog.length) return;
+  perLog = [];
+  setPerLog(perDate, perLog);
+  refreshPer();
+}
+function perRecordText(){
+  return '【周边训练】' + CHILD_NAME + ' · ' + perDate +
+    '：共 ' + perTotal() + ' 次，命中 ' + perHits() + ' 次' +
+    (perTotal() ? '，命中率 ' + perRate() : '') + '。';
+}
+function sharePerRecord(){
+  if(!perTotal()) return;
+  const text = perRecordText();
+  if(navigator.share){
+    navigator.share({ title:'周边训练记录', text }).catch(() => copyPerRecord());
+  } else {
+    copyPerRecord();
+  }
+}
+function copyPerRecord(){
+  if(!perTotal()) return;
+  const text = perRecordText();
+  const fallback = () => alert('复制失败，请手动记下：\n' + text);
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(() => alert('已复制，去微信粘贴发送即可。'), fallback);
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select();
+    let ok = false;
+    try{ ok = document.execCommand('copy'); }catch(e){}
+    ta.remove();
+    ok ? alert('已复制，去微信粘贴发送即可。') : fallback();
+  }
+}
+
+$('goPeripheralTutorial').addEventListener('click', () => showScreen('screen-peripheral-tutorial'));
+$('goPeripheralRecord').addEventListener('click', () => { refreshPer(); showScreen('screen-peripheral-record'); });
+$('goPeripheralRecordFromTutorial').addEventListener('click', () => { refreshPer(); showScreen('screen-peripheral-record'); });
+$('perHitBtn').addEventListener('click', () => perAdd('hit'));
+$('perMissBtn').addEventListener('click', () => perAdd('miss'));
+$('perUndoBtn').addEventListener('click', perUndo);
+$('perClearBtn').addEventListener('click', perClear);
+$('sharePerBtn').addEventListener('click', sharePerRecord);
+$('copyPerBtn').addEventListener('click', copyPerRecord);
+$('perDateInput').addEventListener('change', e => switchPerDate(e.target.value));
+
+/* ============ 视训师端 · 家庭管理 + 处方工作台 ============ */
+const RX_PROJECTS = [
+  { key:'eye',        title:'眼肌拉伸', param:'右眼/左眼/双眼，8 方位 + 正视各 5 秒' },
+  { key:'marsden',    title:'马斯登球', param:'追随 / 反 / 停，各 3 组' },
+  { key:'peripheral', title:'周边训练', param:'金银球，10 次一组 × 2 组' },
+];
+let children = loadChildren();
+let prescriptions = loadPrescriptions();
+let currentChildId = null;
+let rxDraft = null;
+let rxText = '';
+
+function uid(){ return 'x' + Date.now() + Math.random().toString(36).slice(2,6); }
+function loadChildren(){ try{ return JSON.parse(lsGet('children','[]')); }catch(e){ return []; } }
+function saveChildren(){ lsSet('children', JSON.stringify(children)); }
+function loadPrescriptions(){ try{ return JSON.parse(lsGet('prescriptions','[]')); }catch(e){ return []; } }
+function savePrescriptions(){ lsSet('prescriptions', JSON.stringify(prescriptions)); }
+function childById(id){ return children.find(c => c.id === id); }
+
+function renderChildren(){
+  const box = $('childrenList');
+  box.innerHTML = '';
+  if(!children.length){
+    box.innerHTML = '<div class="empty-hint">还没有孩子，点下方「＋ 添加孩子」。</div>';
+    return;
+  }
+  children.forEach(c => {
+    const n = prescriptions.filter(p => p.childId === c.id).length;
+    const card = document.createElement('div');
+    card.className = 'plan-card';
+    card.style.cursor = 'pointer';
+    card.innerHTML = '<div class="row1">' +
+      '<div class="icon">👦</div>' +
+      '<div class="info"><div class="title">' + esc(c.name) + '</div>' +
+      '<div class="meta">' + (c.note ? esc(c.note) + ' · ' : '') + n + ' 张处方</div></div>' +
+      '<span class="chev">›</span>' +
+      '</div>';
+    card.addEventListener('click', () => openChild(c.id));
+    box.appendChild(card);
+  });
+}
+
+function addChild(){
+  const name = (prompt('孩子姓名：') || '').trim();
+  if(!name) return;
+  const note = (prompt('备注（可留空，如年龄/主要问题）：') || '').trim();
+  children.push({ id: uid(), name, note, created: Date.now() });
+  saveChildren();
+  renderChildren();
+}
+
+function openChild(id){
+  currentChildId = id;
+  const c = childById(id);
+  $('childProfileName').textContent = c ? c.name : '';
+  $('childProfileNote').textContent = c && c.note ? c.note : '训练档案';
+  renderRxList();
+  showScreen('screen-trainer-child');
+}
+
+function renderRxList(){
+  const box = $('rxList');
+  box.innerHTML = '';
+  const list = prescriptions.filter(p => p.childId === currentChildId).sort((a,b) => b.created - a.created);
+  if(!list.length){
+    box.innerHTML = '<div class="empty-hint">还没有处方，点「＋ 新建处方」。</div>';
+    return;
+  }
+  list.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'plan-card';
+    card.innerHTML = '<div class="row1"><div class="icon">📋</div>' +
+      '<div class="info"><div class="title">' + esc(p.date) + '</div>' +
+      '<div class="meta">' + esc(p.projects.map(x => x.title).join(' / ')) + '</div></div></div>' +
+      '<div class="plan-actions">' +
+      '<button class="pa-btn ghost" data-act="share" data-id="' + p.id + '">分享给家长</button>' +
+      '<button class="pa-btn ghost" data-act="del" data-id="' + p.id + '">删除</button>' +
+      '</div>';
+    box.appendChild(card);
+  });
+  box.querySelectorAll('[data-act]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const p = prescriptions.find(x => x.id === btn.dataset.id);
+      if(!p) return;
+      if(btn.dataset.act === 'share') shareRxText(rxToText(p));
+      else {
+        prescriptions = prescriptions.filter(x => x.id !== btn.dataset.id);
+        savePrescriptions();
+        renderRxList();
+        renderChildren();
+      }
+    });
+  });
+}
+
+function newRx(){
+  const c = childById(currentChildId);
+  $('rxChildLabel').textContent = c ? '给「' + c.name + '」开处方' : '新建处方';
+  renderRxProjects();
+  $('rxNote').value = '';
+  $('rxPreviewBlock').style.display = 'none';
+  $('shareRxBtn').style.display = 'none';
+  $('copyRxBtn').style.display = 'none';
+  $('saveRxBtn').style.display = 'none';
+  rxDraft = null; rxText = '';
+  showScreen('screen-trainer-prescription');
+}
+
+function renderRxProjects(){
+  const box = $('rxProjects');
+  box.innerHTML = '';
+  RX_PROJECTS.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'block';
+    card.innerHTML = '<label class="rx-check"><input type="checkbox" data-key="' + p.key + '" checked> ' + esc(p.title) + '</label>' +
+      '<input type="text" class="rx-param" data-key="' + p.key + '" value="' + esc(p.param) + '">';
+    box.appendChild(card);
+  });
+}
+
+function rxToText(p){
+  const c = childById(p.childId);
+  return '【明眸训练 · 训练处方】\n' +
+    '孩子：' + (c ? c.name : '') + '\n' +
+    '日期：' + p.date + '\n' +
+    p.projects.map((pr, i) => (i+1) + '. ' + pr.title + '：' + pr.param).join('\n') +
+    (p.note ? '\n注意：' + p.note : '') +
+    '\n—— 练完记得回传（拍照/录像/记命中）发给视训师。';
+}
+
+function genRx(){
+  const projs = [];
+  document.querySelectorAll('#rxProjects .rx-check input:checked').forEach(cb => {
+    const key = cb.dataset.key;
+    const p = RX_PROJECTS.find(x => x.key === key);
+    const param = document.querySelector('#rxProjects .rx-param[data-key="' + key + '"]').value.trim();
+    projs.push({ key, title: p.title, param });
+  });
+  if(!projs.length){ alert('请至少勾选一个训练项目'); return; }
+  const note = $('rxNote').value.trim();
+  rxDraft = { projs, note };
+  rxText = rxToText({ childId: currentChildId, date: todayStrCN(), projects: projs, note });
+  $('rxPreview').textContent = rxText;
+  $('rxPreviewBlock').style.display = 'block';
+  $('shareRxBtn').style.display = 'block';
+  $('copyRxBtn').style.display = 'block';
+  $('saveRxBtn').style.display = 'block';
+}
+
+function shareRxText(text){
+  if(!text) return;
+  if(navigator.share){ navigator.share({ title:'训练处方', text }).catch(()=>{}); }
+  else copyRxText(text);
+}
+function copyRxText(text){
+  const fallback = () => alert('复制失败，请手动记下：\n' + text);
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(() => alert('已复制，去微信粘贴发送即可。'), fallback);
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select();
+    let ok = false;
+    try{ ok = document.execCommand('copy'); }catch(e){}
+    ta.remove();
+    ok ? alert('已复制，去微信粘贴发送即可。') : fallback();
+  }
+}
+function saveRx(){
+  if(!rxDraft) return;
+  prescriptions.push({ id: uid(), childId: currentChildId, date: todayStrCN(), projects: rxDraft.projs, note: rxDraft.note, created: Date.now() });
+  savePrescriptions();
+  rxDraft = null; rxText = '';
+  openChild(currentChildId);
+}
+
+$('addChildBtn').addEventListener('click', addChild);
+$('newRxBtn').addEventListener('click', newRx);
+$('genRxBtn').addEventListener('click', genRx);
+$('shareRxBtn').addEventListener('click', () => shareRxText(rxText));
+$('copyRxBtn').addEventListener('click', () => copyRxText(rxText));
+$('saveRxBtn').addEventListener('click', saveRx);
+
+renderChildren();
+refreshPer();
+renderMarsdenSlots();
+buildGrid();
+refreshPlan();
+</script>
+</body>
+</html>
