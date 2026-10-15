@@ -42,6 +42,7 @@
     padding:13px 4px; border-bottom:1px solid #eef0f3;
   }
   .list-item:last-child { border-bottom:none; }
+  .list-item > div { min-width: 0; flex: 1; }
   .list-item .t { font-size:15px; }
   .list-item .s { font-size:12px; color:#888; }
   .code {
@@ -221,15 +222,29 @@
     var box = $('rec-list');
     if (rr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(rr.error.message) + '</div>'; return; }
     if (!rr.data.length) box.innerHTML = '<div class="empty">还没有回传记录</div>';
-    rr.data.forEach(function (r) {
+    for (var i = 0; i < rr.data.length; i++) {
+      var r = rr.data[i];
       var d = r.data || {};
       var desc = '';
       if (r.type === 'peripheral') desc = '命中 ' + (d.hit || 0) + ' 次 · 未中 ' + (d.miss || 0) + ' 次';
       else desc = r.type;
-      box.innerHTML +=
-        '<div class="list-item"><div><div class="t">' + esc(desc) + '</div>' +
-        '<div class="s">' + fmtTime(r.created_at) + '</div></div></div>';
-    });
+      var html = '<div class="list-item"><div><div class="t">' + esc(desc) + '</div>' +
+        '<div class="s">' + fmtTime(r.created_at) + '</div>';
+      var media = r.media || [];
+      for (var j = 0; j < media.length; j++) {
+        var su = await sb.storage.from('media').createSignedUrl(media[j], 3600);
+        if (su.data && su.data.signedUrl) {
+          var u = esc(su.data.signedUrl);
+          if (/\.(mp4|mov|webm|m4v)$/i.test(media[j])) {
+            html += '<video src="' + u + '" controls style="max-width:100%;margin-top:8px;border-radius:6px;"></video>';
+          } else {
+            html += '<img src="' + u + '" style="max-width:100%;margin-top:8px;border-radius:6px;">';
+          }
+        }
+      }
+      html += '</div></div>';
+      box.innerHTML += html;
+    }
   }
 
   // ---------- 家长端 ----------
@@ -279,15 +294,38 @@
       '<p class="sub">孩子：' + esc(cname) + '</p>' +
       '<div class="row2"><div><label>命中次数</label><input id="hit" type="number" value="0"></div>' +
       '<div><label>未中次数</label><input id="miss" type="number" value="0"></div></div>' +
+      '<label>照片 / 视频（可选，可多选）</label>' +
+      '<input id="media-input" type="file" accept="image/*,video/*" multiple>' +
       '<button class="btn btn-primary" onclick="submitRecord()">提交回传</button>' +
       '<button class="btn btn-ghost" onclick="home()">返回</button>';
   }
   async function submitRecord() {
     var hit = parseInt($('hit').value) || 0, miss = parseInt($('miss').value) || 0;
+    // 1. 先建回传记录，拿到记录 id
     var res = await sb.from('records').insert({
       child_id: state.childId, type: 'peripheral', data: { hit: hit, miss: miss }
-    });
+    }).select();
     if (res.error) { alert('提交失败：' + res.error.message); return; }
+    var recId = res.data[0].id;
+
+    // 2. 把照片/视频传到 Storage（路径：孩子id / 记录id / 时间戳.扩展名）
+    var files = $('media-input').files;
+    var media = [];
+    for (var i = 0; i < files.length; i++) {
+      var f = files[i];
+      var ext = (f.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (!ext || ext.length > 5) ext = 'bin';
+      var path = state.childId + '/' + recId + '/' + Date.now() + '_' + (i + 1) + '.' + ext;
+      var up = await sb.storage.from('media').upload(path, f);
+      if (up.error) { alert('上传失败：' + up.error.message); return; }
+      media.push(path);
+    }
+
+    // 3. 把文件路径存回这条记录
+    if (media.length) {
+      var upd = await sb.from('records').update({ media: media }).eq('id', recId);
+      if (upd.error) { alert('保存文件路径失败：' + upd.error.message); return; }
+    }
     alert('回传成功！视训师那边已经能看到了');
     home();
   }
