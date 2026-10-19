@@ -72,6 +72,13 @@
   .photo-cell.filled { border-style:solid; border-color:#27ae60; }
   .photo-status { text-align:center; font-size:13px; color:#888; margin-top:12px; }
   .clear-btn { display:block; margin:8px auto 0; border:none; background:none; color:#888; font-size:13px; cursor:pointer; text-decoration:underline; }
+
+  /* ---- 图片查看器（点开放大 / 双指缩放 / 拖动 / 双击放大，仿微信）---- */
+  .img-viewer { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.92); z-index:9999; display:none; align-items:center; justify-content:center; overflow:hidden; touch-action:none; }
+  .img-viewer.open { display:flex; }
+  #iv-img { max-width:100%; max-height:100%; user-select:none; -webkit-user-select:none; -webkit-user-drag:none; transform:translate(0,0) scale(1); transform-origin:center center; will-change:transform; }
+  .iv-close { position:fixed; top:12px; right:12px; width:36px; height:36px; border-radius:50%; border:none; background:rgba(255,255,255,.22); color:#fff; font-size:18px; line-height:1; cursor:pointer; z-index:10001; }
+  .iv-hint { position:fixed; bottom:20px; left:0; right:0; text-align:center; color:rgba(255,255,255,.55); font-size:12px; pointer-events:none; }
 </style>
 </head>
 <body>
@@ -101,6 +108,13 @@
     <div id="content"></div>
   </div>
 
+</div>
+
+<!-- 图片查看器：点开大图，可双指缩放 / 拖动 / 双击放大，仿微信 -->
+<div id="img-viewer" class="img-viewer">
+  <button class="iv-close" id="iv-close">✕</button>
+  <img id="iv-img" src="" alt="">
+  <div class="iv-hint">双指缩放 · 双击放大 · 点空白处关闭</div>
 </div>
 
 <script src="supabase.js"></script>
@@ -280,7 +294,7 @@
           if (/\.(mp4|mov|webm|m4v)$/i.test(media[j])) {
             html += '<video src="' + u + '" controls preload="metadata" style="max-width:100%;margin-top:8px;border-radius:6px;"></video>';
           } else {
-            html += '<img src="' + u + '" loading="lazy" style="max-width:100%;margin-top:8px;border-radius:6px;">';
+            html += '<img src="' + u + '" class="zoomable" loading="lazy" style="max-width:100%;margin-top:8px;border-radius:6px;cursor:zoom-in;">';
           }
         }
       }
@@ -611,10 +625,118 @@
     }
   }
 
+  // ---------- 图片查看器（仿微信：点开放大、双指缩放、拖动、双击放大）----------
+  var iv = { scale: 1, tx: 0, ty: 0, maxScale: 4, g: {}, moved: false, lastTap: 0, lastX: 0, lastY: 0, mouseDrag: null };
+
+  function openImgViewer(src) {
+    iv.scale = 1; iv.tx = 0; iv.ty = 0; iv.moved = false;
+    $('iv-img').src = src;
+    applyIv();
+    $('img-viewer').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeImgViewer() {
+    $('img-viewer').classList.remove('open');
+    document.body.style.overflow = '';
+    iv.scale = 1; iv.tx = 0; iv.ty = 0; iv.moved = false;
+  }
+  function applyIv() {
+    $('iv-img').style.transform = 'translate(' + iv.tx + 'px,' + iv.ty + 'px) scale(' + iv.scale + ')';
+  }
+  function clampIv() {
+    if (iv.scale < 1) iv.scale = 1;
+    if (iv.scale > iv.maxScale) iv.scale = iv.maxScale;
+  }
+
+  function ivTouchStart(e) {
+    iv.moved = false;
+    if (e.touches.length === 1) {
+      iv.g.x = e.touches[0].clientX; iv.g.y = e.touches[0].clientY;
+      iv.g.tx = iv.tx; iv.g.ty = iv.ty; iv.g.pan = true;
+    } else if (e.touches.length === 2) {
+      iv.g.pan = false;
+      iv.g.dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
+                             e.touches[0].clientY - e.touches[1].clientY);
+      iv.g.scale = iv.scale;
+    }
+  }
+  function ivTouchMove(e) {
+    if (e.touches.length === 1 && iv.g.pan && iv.scale > 1) {
+      iv.tx = iv.g.tx + (e.touches[0].clientX - iv.g.x);
+      iv.ty = iv.g.ty + (e.touches[0].clientY - iv.g.y);
+      iv.moved = true; applyIv();
+    } else if (e.touches.length === 2) {
+      var d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
+                         e.touches[0].clientY - e.touches[1].clientY);
+      iv.scale = iv.g.scale * (d / iv.g.dist);
+      iv.moved = true; clampIv(); applyIv();
+    }
+  }
+  function ivTouchEnd(e) {
+    iv.g.pan = false;
+    var t = e.changedTouches[0];
+    var now = Date.now();
+    if (t && now - iv.lastTap < 300 &&
+        Math.abs(t.clientX - iv.lastX) < 30 && Math.abs(t.clientY - iv.lastY) < 30) {
+      iv.scale = iv.scale > 1.5 ? 1 : 2.5;
+      if (iv.scale === 1) { iv.tx = 0; iv.ty = 0; }
+      applyIv(); iv.lastTap = 0;
+    } else if (t) {
+      iv.lastTap = now; iv.lastX = t.clientX; iv.lastY = t.clientY;
+    }
+  }
+
+  function ivWheel(e) {
+    iv.scale *= e.deltaY < 0 ? 1.15 : (1 / 1.15);
+    clampIv(); applyIv();
+    e.preventDefault();
+  }
+  function ivDblClick() {
+    iv.scale = iv.scale > 1.5 ? 1 : 2.5;
+    if (iv.scale === 1) { iv.tx = 0; iv.ty = 0; }
+    applyIv();
+  }
+  function ivMouseDown(e) {
+    iv.moved = false;
+    iv.mouseDrag = { x: e.clientX, y: e.clientY, tx: iv.tx, ty: iv.ty };
+    e.preventDefault();
+  }
+  function ivMouseMove(e) {
+    if (!iv.mouseDrag) return;
+    iv.tx = iv.mouseDrag.tx + (e.clientX - iv.mouseDrag.x);
+    iv.ty = iv.mouseDrag.ty + (e.clientY - iv.mouseDrag.y);
+    iv.moved = true; applyIv();
+  }
+  function ivMouseUp() { iv.mouseDrag = null; }
+
   // ---------- 绑定事件 ----------
   $('login-btn').onclick = signIn;
   $('signup-btn').onclick = signUp;
   $('logout-btn').onclick = signOut;
+
+  // 图片查看器：绑定手势与关闭
+  var ivEl = $('img-viewer'), ivImg = $('iv-img');
+  $('iv-close').onclick = closeImgViewer;
+  ivEl.addEventListener('click', function (e) {
+    if (iv.moved) { iv.moved = false; return; }
+    if (e.target === ivEl) closeImgViewer();
+  });
+  ivEl.addEventListener('touchstart', ivTouchStart, { passive: true });
+  ivEl.addEventListener('touchmove', ivTouchMove, { passive: true });
+  ivEl.addEventListener('touchend', ivTouchEnd, { passive: true });
+  ivEl.addEventListener('wheel', ivWheel, { passive: false });
+  ivImg.addEventListener('dblclick', ivDblClick);
+  ivImg.addEventListener('mousedown', ivMouseDown);
+  document.addEventListener('mousemove', ivMouseMove);
+  document.addEventListener('mouseup', ivMouseUp);
+
+  // 记录里的图片：点击放大查看（事件委托，动态渲染也能用）
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    if (t && t.tagName === 'IMG' && t.classList.contains('zoomable')) {
+      openImgViewer(t.src);
+    }
+  });
 
   // 启动：已登录则直接进入
   (async function init() {
