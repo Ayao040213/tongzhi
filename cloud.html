@@ -5,73 +5,106 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>瞳治视觉训练助手 · 云端版</title>
 <style>
-  * { box-sizing: border-box; }
-  body {
-    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-    margin: 0; padding: 0;
-    background: #f5f7fa; color: #1a1a1a; line-height: 1.6;
+  /* ============ 设计令牌 ============ */
+  :root{
+    --bg:#f4f8fa; --card:#fff; --primary:#1a7a8c; --primary-dark:#0f5a68;
+    --accent:#f2a33c; --success:#2e9e6b; --bad:#e05a4f; --text:#1f2d33;
+    --muted:#6b7a82; --line:#e3ebef;
   }
-  .wrap { max-width: 560px; margin: 0 auto; padding: 16px 16px 40px; }
-  .card { background:#fff; border-radius:14px; padding:20px 18px; box-shadow:0 2px 10px rgba(0,0,0,0.05); margin-bottom:16px; }
-  h1 { font-size:19px; margin:0 0 4px; }
-  h2 { font-size:16px; margin:0 0 12px; }
-  .sub { color:#888; font-size:13px; margin:0 0 16px; }
-
-  label { display:block; font-size:13px; color:#555; margin:12px 0 6px; }
-  input {
-    width:100%; padding:11px; font-size:16px;
-    border:1px solid #d5dbe3; border-radius:8px;
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; padding:0; }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.6;
   }
-  input:focus { outline:none; border-color:#2f6fed; }
+  .wrap{ max-width:460px; margin:0 auto; min-height:100vh; position:relative; background:var(--bg); padding:0 16px 40px; }
+  #content{ animation:fadeIn .25s ease; }
+  @keyframes fadeIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;} }
 
-  .btn { width:100%; padding:12px; font-size:16px; border:none; border-radius:8px; cursor:pointer; margin-top:14px; }
-  .btn-primary { background:#2f6fed; color:#fff; }
-  .btn-ghost { background:#eef2f7; color:#2f6fed; margin-top:10px; }
-  .btn-small { width:auto; padding:7px 14px; font-size:13px; margin-top:0; }
-  .btn:active { opacity:0.85; }
-  .btn:disabled { opacity:0.55; cursor:default; }
-
-  .msg { margin-top:12px; font-size:14px; white-space:pre-wrap; }
-  .msg.err { color:#c0392b; } .msg.ok { color:#27ae60; }
-
-  .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
-  .topbar .who { font-size:13px; color:#555; }
-  .tag { display:inline-block; padding:2px 10px; border-radius:999px; font-size:12px; background:#e8f0fe; color:#2f6fed; }
-
-  .list-item {
-    display:flex; justify-content:space-between; align-items:center;
-    padding:13px 4px; border-bottom:1px solid #eef0f3;
+  /* ============ 顶部栏 ============ */
+  .topbar{
+    margin:0 -16px; background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+    color:#fff; padding:20px 20px 18px; border-radius:0 0 22px 22px;
+    display:flex; justify-content:space-between; align-items:flex-start; gap:10px;
   }
-  .list-item:last-child { border-bottom:none; }
-  .list-item > div { min-width: 0; flex: 1; }
-  .list-item .t { font-size:15px; }
-  .list-item .s { font-size:12px; color:#888; }
-  .code {
-    font-family: monospace; font-size:18px; letter-spacing:2px;
-    background:#eef2f7; padding:2px 10px; border-radius:6px; color:#2f6fed;
-  }
-  .empty { color:#999; font-size:14px; text-align:center; padding:20px 0; }
-  .row2 { display:flex; gap:10px; }
-  .row2 > div { flex:1; }
-  .linkbtn { background:none; border:none; color:#2f6fed; font-size:14px; cursor:pointer; padding:0; }
-  .small-note { font-size:12px; color:#bbb; margin-top:18px; text-align:center; }
+  .topbar .brand{ font-size:19px; font-weight:700; letter-spacing:1px; }
+  .topbar .who{ font-size:13px; opacity:.92; margin-top:4px; display:flex; align-items:center; gap:6px; }
+  .topbar .tag{ display:inline-block; padding:1px 10px; border-radius:999px; font-size:12px; background:rgba(255,255,255,.22); }
+  .topbar .logout{ border:none; background:rgba(255,255,255,.18); color:#fff; border-radius:999px; padding:6px 14px; font-size:13px; cursor:pointer; flex-shrink:0; }
 
-  /* ---- 眼位照 ---- */
-  .stage-tabs, .source-tabs { display:flex; gap:8px; margin-top:12px; }
-  .stage-tab, .source-tab { flex:1; border:1px solid #d5dbe3; border-radius:8px; padding:10px 0; font-size:14px; font-weight:600; cursor:pointer; background:#f0f4f8; color:#555; }
-  .stage-tab.active { background:#2f6fed; color:#fff; border-color:#2f6fed; }
-  .source-tab.active { background:#e8f0fe; color:#2f6fed; border-color:#2f6fed; }
+  /* ============ 登录页 ============ */
+  .login-hero{ margin:0 -16px; text-align:center; padding:48px 24px 30px; background:linear-gradient(135deg,var(--primary),var(--primary-dark)); border-radius:0 0 28px 28px; color:#fff; }
+  .login-hero .logo{ font-size:46px; line-height:1; }
+  .login-hero h1{ font-size:22px; margin:12px 0 4px; letter-spacing:1px; }
+  .login-hero p{ font-size:13px; opacity:.85; margin:0; }
+  .login-card{ background:var(--card); margin:-20px 0 0; border-radius:18px; padding:22px 18px; box-shadow:0 6px 24px rgba(20,60,80,.14); }
+
+  /* ============ 卡片 & 标题 ============ */
+  .card{ background:var(--card); margin:12px 0; border-radius:16px; padding:16px 18px; box-shadow:0 2px 10px rgba(20,60,80,.06); }
+  .page-title{ font-size:17px; font-weight:700; margin:0; padding:18px 0 2px; }
+  .page-sub{ font-size:13px; color:var(--muted); padding:2px 0 0; margin:0; }
+  .card h1{ font-size:20px; margin:0 0 4px; }
+  .card h2{ font-size:16px; margin:0 0 12px; }
+  .sub{ color:var(--muted); font-size:13px; margin:0 0 16px; }
+
+  /* ============ 表单 ============ */
+  label{ display:block; font-size:13px; color:var(--muted); margin:14px 0 6px; }
+  input{
+    width:100%; padding:12px; font-size:16px; color:var(--text);
+    border:1px solid var(--line); border-radius:12px; background:#fff;
+  }
+  input:focus{ outline:none; border-color:var(--primary); }
+
+  /* ============ 按钮 ============ */
+  .btn{ width:100%; padding:14px; font-size:16px; font-weight:600; border:none; border-radius:14px; cursor:pointer; margin-top:14px; }
+  .btn-primary{ background:linear-gradient(135deg,var(--primary),var(--primary-dark)); color:#fff; }
+  .btn-ghost{ background:#eef4f6; color:var(--primary); margin-top:10px; }
+  .btn-small{ width:auto; padding:8px 16px; font-size:13px; margin-top:0; border-radius:10px; }
+  .btn:active{ transform:scale(.98); }
+  .btn:disabled{ background:#c6d4da; opacity:1; cursor:default; }
+
+  /* ============ 提示 ============ */
+  .msg{ margin-top:12px; font-size:14px; white-space:pre-wrap; }
+  .msg.err{ color:var(--bad); } .msg.ok{ color:var(--success); }
+
+  /* ============ 列表项（卡片式）============ */
+  .list-item{
+    background:var(--card); margin:10px 0; border-radius:14px; padding:14px 16px;
+    box-shadow:0 2px 10px rgba(20,60,80,.06);
+    display:flex; justify-content:space-between; align-items:center; gap:12px;
+  }
+  .list-item > div{ min-width:0; flex:1; }
+  .list-item .t{ font-size:15px; font-weight:600; }
+  .list-item .s{ font-size:12px; color:var(--muted); margin-top:2px; }
+  .list-item .icon{ width:42px; height:42px; border-radius:12px; background:#fff2e0; display:flex; align-items:center; justify-content:center; font-size:21px; flex-shrink:0; }
+  .code{ font-family:monospace; font-size:16px; letter-spacing:2px; background:#eef4f6; padding:2px 10px; border-radius:8px; color:var(--primary); }
+  .empty{ color:var(--muted); font-size:14px; text-align:center; padding:24px 16px; }
+  .row2{ display:flex; gap:10px; }
+  .row2 > div{ flex:1; }
+  .linkbtn{ background:none; border:none; color:var(--primary); font-size:14px; cursor:pointer; padding:0; }
+  .small-note{ font-size:12px; color:var(--muted); margin-top:18px; text-align:center; }
+
+  /* ============ 回传记录里的图片/视频 ============ */
+  .rec-media{ margin-top:10px; }
+  .rec-media img{ display:block; max-width:100%; border-radius:12px; cursor:pointer; box-shadow:0 2px 8px rgba(20,60,80,.08); }
+  .rec-media video{ display:block; width:100%; border-radius:12px; background:#000; }
+
+  /* ============ 眼位照 ============ */
+  .stage-tabs, .source-tabs { display:flex; gap:8px; margin:14px 0 0; }
+  .stage-tab, .source-tab { flex:1; border:none; border-radius:12px; padding:11px 0; font-size:14px; font-weight:600; cursor:pointer; background:#eef4f6; color:var(--muted); }
+  .stage-tab.active { background:var(--primary); color:#fff; }
+  .source-tab.active { background:var(--accent); color:#fff; }
   .photo-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
-  .photo-cell { position:relative; aspect-ratio:1/1; border-radius:10px; border:2px dashed #c7d7dd; background:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden; }
+  .photo-cell { position:relative; aspect-ratio:1/1; border-radius:12px; border:2px dashed #c7d7dd; background:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden; }
   .photo-grid.wide .photo-cell { aspect-ratio:4/3; }
-  .photo-cell .pc-dir { position:absolute; top:0; left:0; right:0; z-index:2; background:rgba(47,111,237,.9); color:#fff; font-size:12px; font-weight:700; text-align:center; padding:2px 0; }
+  .photo-cell .pc-dir { position:absolute; top:0; left:0; right:0; z-index:2; background:rgba(26,122,140,.85); color:#fff; font-size:12px; font-weight:700; text-align:center; padding:3px 0; }
   .photo-cell .pc-body { width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
-  .photo-cell .pc-add { font-size:28px; color:#aab3bd; }
-  .photo-cell .pc-hint { font-size:11px; color:#aab3bd; }
+  .photo-cell .pc-add { font-size:30px; color:var(--muted); }
+  .photo-cell .pc-hint { font-size:11px; color:var(--muted); }
   .photo-cell img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
-  .photo-cell.filled { border-style:solid; border-color:#27ae60; }
-  .photo-status { text-align:center; font-size:13px; color:#888; margin-top:12px; }
-  .clear-btn { display:block; margin:8px auto 0; border:none; background:none; color:#888; font-size:13px; cursor:pointer; text-decoration:underline; }
+  .photo-cell.filled { border-style:solid; border-color:var(--success); }
+  .photo-status { text-align:center; font-size:13px; color:var(--muted); margin-top:12px; }
+  .clear-btn { display:block; margin:8px auto 0; border:none; background:none; color:var(--muted); font-size:13px; cursor:pointer; text-decoration:underline; }
 
   /* ---- 图片查看器（点开放大 / 双指缩放 / 拖动 / 双击放大，仿微信）---- */
   .img-viewer { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.92); z-index:9999; display:none; align-items:center; justify-content:center; overflow:hidden; touch-action:none; }
@@ -85,25 +118,31 @@
 <div class="wrap">
 
   <!-- 登录 / 注册 -->
-  <div id="login-view" class="card">
-    <h1>瞳治视觉训练助手</h1>
-    <p class="sub">云端版 · 用邮箱登录</p>
-    <label>邮箱</label>
-    <input id="email" type="email" placeholder="you@example.com" autocomplete="username">
-    <label>密码（至少 6 位）</label>
-    <input id="password" type="password" placeholder="••••••" autocomplete="current-password">
-    <button class="btn btn-primary" id="login-btn">登录</button>
-    <button class="btn btn-ghost" id="signup-btn">注册新账号</button>
-    <div class="msg" id="msg"></div>
+  <div id="login-view">
+    <div class="login-hero">
+      <div class="logo">👁️</div>
+      <h1>瞳治视觉训练助手</h1>
+      <p>云端版 · 用邮箱登录</p>
+    </div>
+    <div class="login-card">
+      <label>邮箱</label>
+      <input id="email" type="email" placeholder="you@example.com" autocomplete="username">
+      <label>密码（至少 6 位）</label>
+      <input id="password" type="password" placeholder="••••••" autocomplete="current-password">
+      <button class="btn btn-primary" id="login-btn">登录</button>
+      <button class="btn btn-ghost" id="signup-btn">注册新账号</button>
+      <div class="msg" id="msg"></div>
+    </div>
   </div>
 
   <!-- 登录后的主界面 -->
   <div id="main-view" style="display:none;">
     <div class="topbar">
-      <span class="who">身份：<span class="tag" id="role-tag">—</span> <span id="who-name"></span></span>
-      <span>
-        <button class="linkbtn" id="logout-btn">退出</button>
-      </span>
+      <div>
+        <div class="brand">瞳治视觉训练助手</div>
+        <div class="who"><span class="tag" id="role-tag">—</span> <span id="who-name"></span></div>
+      </div>
+      <button class="logout" id="logout-btn">退出</button>
     </div>
     <div id="content"></div>
   </div>
@@ -211,13 +250,14 @@
   async function renderTherapistHome() {
     renderTopbar();
     var c = $('content');
-    c.innerHTML = '<h2>我的家庭</h2>';
+    c.innerHTML = '<h2 class="page-title">我的家庭</h2>';
     var res = await sb.from('families').select('*').order('created_at', { ascending: false });
     if (res.error) { c.innerHTML += '<div class="empty">读取失败：' + esc(res.error.message) + '</div>'; return; }
     if (!res.data.length) c.innerHTML += '<div class="empty">还没有家庭，先创建一个</div>';
     res.data.forEach(function (f) {
       c.innerHTML +=
         '<div class="list-item">' +
+          '<span class="icon">👪</span>' +
           '<div><div class="t">' + esc(f.name || '（未命名）') + '</div>' +
           '<div class="s">邀请码：<span class="code">' + esc(f.invite_code) + '</span></div></div>' +
           '<button class="btn btn-primary btn-small" onclick="openFamily(\'' + f.id + '\')">进入</button>' +
@@ -241,7 +281,7 @@
     var res = await sb.from('families').select('name').eq('id', fid).single();
     var fname = res.data ? res.data.name : '';
     var c = $('content');
-    c.innerHTML = '<h2>家庭：' + esc(fname) + '</h2><div id="child-list"></div>';
+    c.innerHTML = '<h2 class="page-title">家庭：' + esc(fname) + '</h2><div id="child-list"></div>';
     c.innerHTML +=
       '<div class="card" style="margin-top:14px;"><h2>添加孩子</h2>' +
       '<div class="row2"><div><label>姓名</label><input id="child-name" placeholder="孩子名字"></div>' +
@@ -254,7 +294,7 @@
     if (!cr.data.length) box.innerHTML = '<div class="empty">这个家庭还没有孩子</div>';
     cr.data.forEach(function (k) {
       box.innerHTML +=
-        '<div class="list-item"><div><div class="t">' + esc(k.name) + '</div>' +
+        '<div class="list-item"><span class="icon">👶</span><div><div class="t">' + esc(k.name) + '</div>' +
         '<div class="s">' + (k.age ? (k.age + ' 岁') : '') + '</div></div>' +
         '<button class="btn btn-primary btn-small" onclick="openChild(\'' + k.id + '\')">看回传</button></div>';
     });
@@ -271,7 +311,7 @@
     var res = await sb.from('children').select('name').eq('id', cid).single();
     var cname = res.data ? res.data.name : '';
     var c = $('content');
-    c.innerHTML = '<h2>' + esc(cname) + ' 的回传</h2><div id="rec-list"></div>' +
+    c.innerHTML = '<h2 class="page-title">' + esc(cname) + ' 的回传</h2><div id="rec-list"></div>' +
       '<button class="btn btn-ghost" onclick="openFamily(\'' + state.familyId + '\')">返回</button>';
     var rr = await sb.from('records').select('*').eq('child_id', cid).order('created_at', { ascending: false });
     var box = $('rec-list');
@@ -292,9 +332,9 @@
         if (su.data && su.data.signedUrl) {
           var u = esc(su.data.signedUrl);
           if (/\.(mp4|mov|webm|m4v)$/i.test(media[j])) {
-            html += '<video src="' + u + '" controls preload="metadata" style="max-width:100%;margin-top:8px;border-radius:6px;"></video>';
+            html += '<video src="' + u + '" controls preload="metadata" style="display:block;width:100%;margin-top:10px;border-radius:12px;background:#000;"></video>';
           } else {
-            html += '<img src="' + u + '" class="zoomable" loading="lazy" onclick="openImgViewer(this.src)" style="max-width:100%;margin-top:8px;border-radius:6px;cursor:pointer;">';
+            html += '<img src="' + u + '" class="zoomable" loading="lazy" onclick="openImgViewer(this.src)" style="display:block;max-width:100%;margin-top:10px;border-radius:12px;cursor:pointer;box-shadow:0 2px 8px rgba(20,60,80,.08);">';
           }
         }
       }
@@ -330,14 +370,14 @@
     var c = $('content');
     var fid = state.profile.family_id;
     var fam = await sb.from('families').select('name').eq('id', fid).single();
-    c.innerHTML = '<h2>我的家庭' + (fam.data ? '：' + esc(fam.data.name) : '') + '</h2><div id="child-list"></div>';
+    c.innerHTML = '<h2 class="page-title">我的家庭' + (fam.data ? '：' + esc(fam.data.name) : '') + '</h2><div id="child-list"></div>';
     var cr = await sb.from('children').select('*').eq('family_id', fid).order('created_at');
     var box = $('child-list');
     if (cr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(cr.error.message) + '</div>'; return; }
     if (!cr.data.length) box.innerHTML = '<div class="empty">视训师还没有添加孩子，等等再来</div>';
     cr.data.forEach(function (k) {
       box.innerHTML +=
-        '<div class="list-item"><div><div class="t">' + esc(k.name) + '</div>' +
+        '<div class="list-item"><span class="icon">👶</span><div><div class="t">' + esc(k.name) + '</div>' +
         '<div class="s">' + (k.age ? (k.age + ' 岁') : '') + '</div></div>' +
         '<div style="display:flex; gap:6px; flex-shrink:0;">' +
           '<button class="btn btn-primary btn-small" onclick="openEyeForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">眼位照</button>' +
@@ -349,12 +389,14 @@
     state.childId = cid;
     var c = $('content');
     c.innerHTML =
-      '<h2>周边训练回传</h2>' +
-      '<p class="sub">孩子：' + esc(cname) + '</p>' +
-      '<div class="row2"><div><label>命中次数</label><input id="hit" type="number" value="0"></div>' +
-      '<div><label>未中次数</label><input id="miss" type="number" value="0"></div></div>' +
-      '<label>照片 / 视频（可选，可多选）</label>' +
-      '<input id="media-input" type="file" accept="image/*,video/*" multiple>' +
+      '<h2 class="page-title">周边训练回传</h2>' +
+      '<p class="page-sub">孩子：' + esc(cname) + '</p>' +
+      '<div class="card" style="margin-top:12px;">' +
+        '<div class="row2"><div><label>命中次数</label><input id="hit" type="number" value="0"></div>' +
+        '<div><label>未中次数</label><input id="miss" type="number" value="0"></div></div>' +
+        '<label>照片 / 视频（可选，可多选）</label>' +
+        '<input id="media-input" type="file" accept="image/*,video/*" multiple>' +
+      '</div>' +
       '<div id="upload-status" class="msg"></div>' +
       '<button class="btn btn-primary" id="submit-btn" onclick="submitRecord()">提交回传</button>' +
       '<button class="btn btn-ghost" onclick="home()">返回</button>';
@@ -437,8 +479,8 @@
     eyePhotos = {};
     var c = $('content');
     c.innerHTML =
-      '<h2>眼位照回传</h2>' +
-      '<p class="sub">孩子：' + esc(cname) + ' · 右眼 → 左眼 → 双眼，各拍 9 张</p>' +
+      '<h2 class="page-title">眼位照回传</h2>' +
+      '<p class="page-sub">孩子：' + esc(cname) + ' · 右眼 → 左眼 → 双眼，各拍 9 张</p>' +
       '<div class="stage-tabs">' +
         '<button class="stage-tab active" data-stage="right">① 右眼</button>' +
         '<button class="stage-tab" data-stage="left">② 左眼</button>' +
