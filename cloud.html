@@ -55,6 +55,23 @@
   .row2 > div { flex:1; }
   .linkbtn { background:none; border:none; color:#2f6fed; font-size:14px; cursor:pointer; padding:0; }
   .small-note { font-size:12px; color:#bbb; margin-top:18px; text-align:center; }
+
+  /* ---- 眼位照 ---- */
+  .stage-tabs, .source-tabs { display:flex; gap:8px; margin-top:12px; }
+  .stage-tab, .source-tab { flex:1; border:1px solid #d5dbe3; border-radius:8px; padding:10px 0; font-size:14px; font-weight:600; cursor:pointer; background:#f0f4f8; color:#555; }
+  .stage-tab.active { background:#2f6fed; color:#fff; border-color:#2f6fed; }
+  .source-tab.active { background:#e8f0fe; color:#2f6fed; border-color:#2f6fed; }
+  .photo-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
+  .photo-cell { position:relative; aspect-ratio:1/1; border-radius:10px; border:2px dashed #c7d7dd; background:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden; }
+  .photo-grid.wide .photo-cell { aspect-ratio:4/3; }
+  .photo-cell .pc-dir { position:absolute; top:0; left:0; right:0; z-index:2; background:rgba(47,111,237,.9); color:#fff; font-size:12px; font-weight:700; text-align:center; padding:2px 0; }
+  .photo-cell .pc-body { width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
+  .photo-cell .pc-add { font-size:28px; color:#aab3bd; }
+  .photo-cell .pc-hint { font-size:11px; color:#aab3bd; }
+  .photo-cell img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .photo-cell.filled { border-style:solid; border-color:#27ae60; }
+  .photo-status { text-align:center; font-size:13px; color:#888; margin-top:12px; }
+  .clear-btn { display:block; margin:8px auto 0; border:none; background:none; color:#888; font-size:13px; cursor:pointer; text-decoration:underline; }
 </style>
 </head>
 <body>
@@ -251,6 +268,7 @@
       var d = r.data || {};
       var desc = '';
       if (r.type === 'peripheral') desc = '命中 ' + (d.hit || 0) + ' 次 · 未中 ' + (d.miss || 0) + ' 次';
+      else if (r.type === 'eye') desc = '眼位照 · ' + eyeStageName(d.stage);
       else desc = r.type;
       var html = '<div class="list-item"><div><div class="t">' + esc(desc) + '</div>' +
         '<div class="s">' + fmtTime(r.created_at) + '</div>';
@@ -307,7 +325,10 @@
       box.innerHTML +=
         '<div class="list-item"><div><div class="t">' + esc(k.name) + '</div>' +
         '<div class="s">' + (k.age ? (k.age + ' 岁') : '') + '</div></div>' +
-        '<button class="btn btn-primary btn-small" onclick="openRecordForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">回传训练</button></div>';
+        '<div style="display:flex; gap:6px; flex-shrink:0;">' +
+          '<button class="btn btn-primary btn-small" onclick="openEyeForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">眼位照</button>' +
+          '<button class="btn btn-ghost btn-small" onclick="openRecordForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">周边训练</button>' +
+        '</div></div>';
     });
   }
   function openRecordForm(cid, cname) {
@@ -363,6 +384,231 @@
     }
     setStatus('回传成功！视训师那边已经能看到了');
     setTimeout(function () { home(); }, 600);
+  }
+
+  // ---------- 眼位照（拍满 9 张 → 拼图 → 上传）----------
+  var EYE_DIRS = [
+    { name:'上',   col:1, row:0 },
+    { name:'下',   col:1, row:2 },
+    { name:'左',   col:0, row:1 },
+    { name:'右',   col:2, row:1 },
+    { name:'左上', col:0, row:0 },
+    { name:'左下', col:0, row:2 },
+    { name:'右上', col:2, row:0 },
+    { name:'右下', col:2, row:2 },
+    { name:'正视', col:1, row:1 }
+  ];
+  var EYE_STAGES = [
+    { id:'right',  label:'右眼', cellW:560, cellH:560 },
+    { id:'left',   label:'左眼', cellW:560, cellH:560 },
+    { id:'double', label:'双眼', cellW:560, cellH:420 }
+  ];
+  var eyeStage = 'right';
+  var eyePhotos = {};       // eyePhotos[阶段][方位] = { url, file }
+  var eyePendingDir = null;
+  var eyeSource = 'camera';
+  var eyeChildName = '';
+
+  function eyeStageName(s) {
+    return s === 'left' ? '左眼' : (s === 'double' ? '双眼' : '右眼');
+  }
+  function eyeStageCfg() { return EYE_STAGES.filter(function (s) { return s.id === eyeStage; })[0]; }
+  function eyeStageLabel() { return eyeStageCfg().label; }
+  function eyeCurPhotos() { return eyePhotos[eyeStage] || (eyePhotos[eyeStage] = {}); }
+
+  function openEyeForm(cid, cname) {
+    state.childId = cid;
+    eyeChildName = cname;
+    eyeStage = 'right';
+    eyePhotos = {};
+    var c = $('content');
+    c.innerHTML =
+      '<h2>眼位照回传</h2>' +
+      '<p class="sub">孩子：' + esc(cname) + ' · 右眼 → 左眼 → 双眼，各拍 9 张</p>' +
+      '<div class="stage-tabs">' +
+        '<button class="stage-tab active" data-stage="right">① 右眼</button>' +
+        '<button class="stage-tab" data-stage="left">② 左眼</button>' +
+        '<button class="stage-tab" data-stage="double">③ 双眼</button>' +
+      '</div>' +
+      '<div class="source-tabs">' +
+        '<button class="source-tab active" data-source="camera">📷 拍照</button>' +
+        '<button class="source-tab" data-source="gallery">🖼 从相册选</button>' +
+      '</div>' +
+      '<div class="photo-grid square" id="eye-grid"></div>' +
+      '<div class="photo-status" id="eye-status">右眼：已拍 0 / 9</div>' +
+      '<button class="clear-btn" id="eye-clear">清空本组重拍</button>' +
+      '<button class="btn btn-primary" id="eye-gen" disabled>生成右眼眼位图</button>' +
+      '<button class="btn btn-ghost" onclick="home()">返回</button>' +
+      '<div class="small-note">遮住另一只眼 · 从正前方拍 · 方位以孩子的左右为准</div>' +
+      '<input type="file" id="eye-input" accept="image/*" style="position:absolute; left:-9999px; width:1px; height:1px;">' +
+      '<input type="file" id="eye-input-camera" accept="image/*" capture="environment" style="position:absolute; left:-9999px; width:1px; height:1px;">';
+
+    var tabs = c.querySelectorAll('.stage-tab');
+    for (var i = 0; i < tabs.length; i++) {
+      tabs[i].onclick = function () {
+        eyeStage = this.getAttribute('data-stage');
+        for (var j = 0; j < tabs.length; j++) tabs[j].classList.toggle('active', tabs[j] === this);
+        buildEyeGrid();
+      };
+    }
+    var srcs = c.querySelectorAll('.source-tab');
+    for (var k = 0; k < srcs.length; k++) {
+      srcs[k].onclick = function () {
+        eyeSource = this.getAttribute('data-source');
+        for (var m = 0; m < srcs.length; m++) srcs[m].classList.toggle('active', srcs[m] === this);
+      };
+    }
+    $('eye-clear').onclick = clearEye;
+    $('eye-gen').onclick = submitEye;
+    $('eye-input').onchange = function () { handleEyeFile($('eye-input').files[0]); };
+    $('eye-input-camera').onchange = function () { handleEyeFile($('eye-input-camera').files[0]); };
+
+    buildEyeGrid();
+  }
+
+  function buildEyeGrid() {
+    var grid = $('eye-grid');
+    if (!grid) return;
+    grid.className = 'photo-grid ' + (eyeStage === 'double' ? 'wide' : 'square');
+    grid.innerHTML = '';
+    EYE_DIRS.forEach(function (d) {
+      var cell = document.createElement('div');
+      cell.className = 'photo-cell';
+      cell.style.gridColumn = d.col + 1;
+      cell.style.gridRow = d.row + 1;
+      cell.innerHTML = '<div class="pc-dir">' + d.name + '</div>' +
+        '<div class="pc-body"><span class="pc-add">📷</span><span class="pc-hint">拍照</span></div>';
+      cell.onclick = (function (dir) { return function () { pickEyePhoto(dir); }; })(d.name);
+      grid.appendChild(cell);
+    });
+    EYE_DIRS.forEach(function (d) { if (eyeCurPhotos()[d.name]) renderEyeThumb(d.name); });
+    refreshEyeStatus();
+  }
+
+  function findEyeCell(dir) {
+    var cells = $('eye-grid').querySelectorAll('.photo-cell');
+    for (var i = 0; i < cells.length; i++) {
+      var d = cells[i].querySelector('.pc-dir');
+      if (d && d.textContent === dir) return cells[i];
+    }
+    return null;
+  }
+  function renderEyeThumb(dir) {
+    var cell = findEyeCell(dir);
+    var p = eyeCurPhotos()[dir];
+    if (cell && p) {
+      cell.classList.add('filled');
+      cell.innerHTML = '<div class="pc-dir">' + dir + '</div><img src="' + p.url + '" alt="' + dir + '">';
+    }
+  }
+
+  function pickEyePhoto(dir) {
+    eyePendingDir = dir;
+    var input = $(eyeSource === 'camera' ? 'eye-input-camera' : 'eye-input');
+    input.value = '';
+    input.click();
+  }
+  function handleEyeFile(f) {
+    if (!f || !eyePendingDir) return;
+    var dir = eyePendingDir;
+    var p = eyeCurPhotos();
+    var old = p[dir];
+    if (old && old.url) URL.revokeObjectURL(old.url);
+    p[dir] = { url: URL.createObjectURL(f), file: f };
+    renderEyeThumb(dir);
+    refreshEyeStatus();
+  }
+
+  function refreshEyeStatus() {
+    var n = EYE_DIRS.filter(function (d) { return eyeCurPhotos()[d.name]; }).length;
+    var left = 9 - n;
+    $('eye-status').textContent = eyeStageLabel() + '：已拍 ' + n + ' / 9' + (n < 9 ? '（还差 ' + left + ' 张）' : '，可以生成啦');
+    var btn = $('eye-gen');
+    btn.disabled = n < 9;      // 拍满 9 张才能生成：缺方位的眼位图对视训师没诊断价值
+    btn.textContent = '生成' + eyeStageLabel() + '眼位图';
+  }
+
+  function clearEye() {
+    Object.keys(eyeCurPhotos()).forEach(function (k) {
+      var p = eyeCurPhotos()[k];
+      if (p && p.url) URL.revokeObjectURL(p.url);
+    });
+    eyePhotos[eyeStage] = {};
+    buildEyeGrid();
+  }
+
+  function eyeLoadImage(src) {
+    return new Promise(function (res, rej) {
+      var im = new Image();
+      im.onload = function () { res(im); };
+      im.onerror = rej;
+      im.src = src;
+    });
+  }
+  function eyeDateStr() {
+    var d = new Date();
+    return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+  }
+  async function generateEyeCanvas() {
+    var cfg = eyeStageCfg();
+    var CELL = cfg.cellW, CELLH = cfg.cellH;
+    var LABEL = 28, GAP = 8, PAD = 20, TITLE = 40;
+    var gw = PAD * 2 + CELL * 3 + GAP * 2;
+    var gh = TITLE + PAD * 2 + CELLH * 3 + GAP * 2;
+    var canvas = document.createElement('canvas');
+    canvas.width = gw; canvas.height = gh;
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, gw, gh);
+    ctx.fillStyle = '#1a7a8c'; ctx.fillRect(0, 0, gw, TITLE);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 22px "PingFang SC","Microsoft YaHei",sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(eyeChildName + ' · 眼肌拉伸 · ' + eyeStageLabel() + ' · ' + eyeDateStr(), gw / 2, TITLE / 2);
+    for (var i = 0; i < EYE_DIRS.length; i++) {
+      var d = EYE_DIRS[i];
+      var x = PAD + d.col * (CELL + GAP);
+      var y = TITLE + PAD + d.row * (CELLH + GAP);
+      ctx.fillStyle = '#1a7a8c'; ctx.fillRect(x, y, CELL, LABEL);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 16px "PingFang SC","Microsoft YaHei",sans-serif';
+      ctx.fillText(d.name, x + CELL / 2, y + LABEL / 2);
+      var imgY = y + LABEL, imgH = CELLH - LABEL;
+      var p = eyeCurPhotos()[d.name];
+      if (p) {
+        var im = await eyeLoadImage(p.url);
+        var s = Math.max(CELL / im.width, imgH / im.height);
+        var w = im.width * s, h = im.height * s;
+        ctx.drawImage(im, x + (CELL - w) / 2, imgY + (imgH - h) / 2, w, h);
+      } else {
+        ctx.fillStyle = '#eef4f6'; ctx.fillRect(x, imgY, CELL, imgH);
+        ctx.fillStyle = '#9aa7ad'; ctx.fillText('缺', x + CELL / 2, imgY + imgH / 2);
+      }
+    }
+    return canvas;
+  }
+
+  async function submitEye() {
+    var btn = $('eye-gen');
+    btn.disabled = true;
+    btn.textContent = '上传中…';
+    try {
+      var canvas = await generateEyeCanvas();
+      var blob = await new Promise(function (res) { canvas.toBlob(res, 'image/png'); });
+      // 先传文件，再建记录（一步把路径存进去，避免"记录建了但图没传上"留空记录）
+      var path = state.childId + '/eye/' + Date.now() + '_' + eyeStage + '.png';
+      var up = await sb.storage.from('media').upload(path, blob, { contentType: 'image/png' });
+      if (up.error) throw new Error('上传失败：' + up.error.message);
+      var ins = await sb.from('records').insert({
+        child_id: state.childId, type: 'eye', data: { stage: eyeStage }, media: [path]
+      });
+      if (ins.error) throw new Error('提交失败：' + ins.error.message);
+      alert(eyeStageLabel() + '眼位图已回传，视训师能看到啦！');
+      clearEye();   // 清空本阶段照片，准备拍下一个阶段
+    } catch (e) {
+      alert(e.message || '生成失败，请重试');
+      btn.disabled = false;
+      btn.textContent = '生成' + eyeStageLabel() + '眼位图';
+    }
   }
 
   // ---------- 绑定事件 ----------
