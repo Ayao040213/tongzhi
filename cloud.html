@@ -294,7 +294,7 @@
           if (/\.(mp4|mov|webm|m4v)$/i.test(media[j])) {
             html += '<video src="' + u + '" controls preload="metadata" style="max-width:100%;margin-top:8px;border-radius:6px;"></video>';
           } else {
-            html += '<img src="' + u + '" class="zoomable" loading="lazy" style="max-width:100%;margin-top:8px;border-radius:6px;cursor:zoom-in;">';
+            html += '<img src="' + u + '" class="zoomable" loading="lazy" onclick="openImgViewer(this.src)" style="max-width:100%;margin-top:8px;border-radius:6px;cursor:pointer;">';
           }
         }
       }
@@ -729,14 +729,6 @@
   ivImg.addEventListener('mousedown', ivMouseDown);
   document.addEventListener('mousemove', ivMouseMove);
   document.addEventListener('mouseup', ivMouseUp);
-
-  // 记录里的图片：点击放大查看（事件委托，动态渲染也能用）
-  document.addEventListener('click', function (e) {
-    var t = e.target;
-    if (t && t.tagName === 'IMG' && t.classList.contains('zoomable')) {
-      openImgViewer(t.src);
-    }
-  });
 
   // 启动：已登录则直接进入
   (async function init() {
