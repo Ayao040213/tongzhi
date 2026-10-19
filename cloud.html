@@ -106,6 +106,21 @@
   .photo-status { text-align:center; font-size:13px; color:var(--muted); margin-top:12px; }
   .clear-btn { display:block; margin:8px auto 0; border:none; background:none; color:var(--muted); font-size:13px; cursor:pointer; text-decoration:underline; }
 
+  /* ============ 马斯登球 · 录训练视频 ============ */
+  .rec-card{ background:var(--card); margin:12px 0; border-radius:16px; padding:16px; box-shadow:0 2px 10px rgba(20,60,80,.06); }
+  .rec-head{ display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+  .rec-num{ width:30px; height:30px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px; flex-shrink:0; }
+  .rec-title{ font-size:17px; font-weight:700; }
+  .rec-desc{ font-size:13px; color:var(--muted); margin-bottom:12px; padding-left:40px; }
+  .rec-slot{ position:relative; border-radius:14px; overflow:hidden; min-height:170px; background:#eef4f6; display:flex; align-items:center; justify-content:center; }
+  .rec-empty{ text-align:center; color:var(--muted); cursor:pointer; padding:28px 20px; width:100%; }
+  .rec-empty .ic{ font-size:40px; line-height:1; }
+  .rec-empty .t{ font-size:14px; font-weight:600; color:var(--primary); margin-top:8px; }
+  .rec-slot video{ display:block; width:100%; max-height:250px; background:#000; }
+  .rec-actions{ display:flex; gap:8px; margin-top:10px; }
+  .rec-re, .rec-save{ flex:1; border:1px solid var(--line); background:#fff; color:var(--primary); border-radius:12px; padding:10px 0; font-size:14px; font-weight:600; cursor:pointer; }
+  .rec-save{ color:var(--success); border-color:var(--success); }
+
   /* ---- 图片查看器（点开放大 / 双指缩放 / 拖动 / 双击放大，仿微信）---- */
   .img-viewer { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.92); z-index:9999; display:none; align-items:center; justify-content:center; overflow:hidden; touch-action:none; }
   .img-viewer.open { display:flex; }
@@ -323,6 +338,7 @@
       var desc = '';
       if (r.type === 'peripheral') desc = '命中 ' + (d.hit || 0) + ' 次 · 未中 ' + (d.miss || 0) + ' 次';
       else if (r.type === 'eye') desc = '眼位照 · ' + eyeStageName(d.stage);
+      else if (r.type === 'marsden') desc = '马斯登球 · ' + ((d.slots && d.slots.length) ? (d.slots.length + ' 段视频') : '视频');
       else desc = r.type;
       var html = '<div class="list-item"><div><div class="t">' + esc(desc) + '</div>' +
         '<div class="s">' + fmtTime(r.created_at) + '</div>';
@@ -377,12 +393,18 @@
     if (!cr.data.length) box.innerHTML = '<div class="empty">视训师还没有添加孩子，等等再来</div>';
     cr.data.forEach(function (k) {
       box.innerHTML +=
-        '<div class="list-item"><span class="icon">👶</span><div><div class="t">' + esc(k.name) + '</div>' +
-        '<div class="s">' + (k.age ? (k.age + ' 岁') : '') + '</div></div>' +
-        '<div style="display:flex; gap:6px; flex-shrink:0;">' +
-          '<button class="btn btn-primary btn-small" onclick="openEyeForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">眼位照</button>' +
-          '<button class="btn btn-ghost btn-small" onclick="openRecordForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">周边训练</button>' +
-        '</div></div>';
+        '<div class="list-item" style="flex-direction:column; align-items:stretch;">' +
+          '<div style="display:flex; align-items:center; gap:10px; flex:none;">' +
+            '<span class="icon">👶</span>' +
+            '<div><div class="t">' + esc(k.name) + '</div>' +
+            '<div class="s">' + (k.age ? (k.age + ' 岁') : '') + '</div></div>' +
+          '</div>' +
+          '<div style="display:flex; gap:6px; margin-top:12px; flex:none;">' +
+            '<button class="btn btn-primary btn-small" style="flex:1;" onclick="openEyeForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">眼位照</button>' +
+            '<button class="btn btn-primary btn-small" style="flex:1;" onclick="openMarsdenForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">马斯登球</button>' +
+            '<button class="btn btn-ghost btn-small" style="flex:1;" onclick="openRecordForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">周边训练</button>' +
+          '</div>' +
+        '</div>';
     });
   }
   function openRecordForm(cid, cname) {
@@ -664,6 +686,137 @@
       alert(e.message || '生成失败，请重试');
       btn.disabled = false;
       btn.textContent = '生成' + eyeStageLabel() + '眼位图';
+    }
+  }
+
+  // ---------- 马斯登球（录「跟随/反/停」三段视频 → 上传给视训师）----------
+  var MARSDEN_SLOTS = [
+    { key: 'follow',  num: '①', title: '跟随眼动', desc: '家长摆球，孩子眼睛追随球动，录一小段' },
+    { key: 'reverse', num: '②', title: '反眼动',   desc: '家长摆球，孩子眼球向反方向动，录一小段' },
+    { key: 'stop',    num: '③', title: '喊停',     desc: '家长突然喊「停」，录孩子眼球停住的状态' }
+  ];
+  var marsdenVideos = {};       // key -> { url, file }
+  var marsdenPending = null;
+  var marsdenSource = 'camera';
+  var marsdenChildName = '';
+
+  function openMarsdenForm(cid, cname) {
+    state.childId = cid;
+    marsdenChildName = cname;
+    marsdenVideos = {};
+    marsdenSource = 'camera';
+    var c = $('content');
+    c.innerHTML =
+      '<h2 class="page-title">马斯登球回传</h2>' +
+      '<p class="page-sub">孩子：' + esc(cname) + ' · 录「跟随 / 反 / 停」三段视频</p>' +
+      '<div class="source-tabs">' +
+        '<button class="source-tab active" data-source="camera">🎥 录像</button>' +
+        '<button class="source-tab" data-source="gallery">🖼 从相册选</button>' +
+      '</div>' +
+      '<div id="marsden-slots"></div>' +
+      '<div class="small-note">手机横屏 · 拍到孩子双眼 · 每段 10~20 秒即可</div>' +
+      '<button class="btn btn-primary" id="marsden-upload" onclick="submitMarsden()" disabled>上传给视训师</button>' +
+      '<button class="btn btn-ghost" onclick="home()">返回</button>' +
+      '<input type="file" id="marsden-input" accept="video/*" style="position:absolute; left:-9999px; width:1px; height:1px;">' +
+      '<input type="file" id="marsden-input-camera" accept="video/*" capture="environment" style="position:absolute; left:-9999px; width:1px; height:1px;">';
+
+    var srcs = c.querySelectorAll('.source-tab');
+    for (var i = 0; i < srcs.length; i++) {
+      srcs[i].onclick = function () {
+        marsdenSource = this.getAttribute('data-source');
+        for (var j = 0; j < srcs.length; j++) srcs[j].classList.toggle('active', srcs[j] === this);
+      };
+    }
+    $('marsden-input').onchange = function () { handleMarsdenFile($('marsden-input').files[0]); };
+    $('marsden-input-camera').onchange = function () { handleMarsdenFile($('marsden-input-camera').files[0]); };
+    renderMarsdenSlots();
+  }
+
+  function renderMarsdenSlots() {
+    var box = $('marsden-slots');
+    if (!box) return;
+    box.innerHTML = '';
+    var count = 0;
+    MARSDEN_SLOTS.forEach(function (s) {
+      var v = marsdenVideos[s.key];
+      if (v) count++;
+      var card = document.createElement('div');
+      card.className = 'rec-card';
+      var slotHtml;
+      if (v) {
+        slotHtml = '<div class="rec-slot"><video controls playsinline src="' + v.url + '"></video></div>' +
+          '<div class="rec-actions">' +
+          '<button class="rec-re" onclick="pickMarsdenSlot(\'' + s.key + '\')">↻ 重录</button>' +
+          '<button class="rec-save" onclick="saveMarsdenVideo(\'' + s.key + '\')">💾 保存到本地</button>' +
+          '</div>';
+      } else {
+        slotHtml = '<div class="rec-slot"><div class="rec-empty" onclick="pickMarsdenSlot(\'' + s.key + '\')">' +
+          '<div class="ic">🎥</div><div class="t">＋ 录制这一段</div></div></div>';
+      }
+      card.innerHTML = '<div class="rec-head"><span class="rec-num">' + s.num + '</span>' +
+        '<span class="rec-title">' + s.title + '</span></div>' +
+        '<div class="rec-desc">' + s.desc + '</div>' + slotHtml;
+      box.appendChild(card);
+    });
+    var btn = $('marsden-upload');
+    btn.disabled = count === 0;
+    btn.textContent = count === 0 ? '上传给视训师（先录至少一段）' : '上传给视训师（已录 ' + count + ' / 3 段）';
+  }
+
+  function pickMarsdenSlot(key) {
+    marsdenPending = key;
+    var input = $(marsdenSource === 'camera' ? 'marsden-input-camera' : 'marsden-input');
+    input.value = '';
+    input.click();
+  }
+
+  function handleMarsdenFile(f) {
+    if (!f || !marsdenPending) return;
+    var key = marsdenPending;
+    var old = marsdenVideos[key];
+    if (old && old.url) URL.revokeObjectURL(old.url);
+    marsdenVideos[key] = { url: URL.createObjectURL(f), file: f };
+    renderMarsdenSlots();
+  }
+
+  function saveMarsdenVideo(key) {
+    var v = marsdenVideos[key];
+    if (!v) return;
+    var s = MARSDEN_SLOTS.filter(function (x) { return x.key === key; })[0];
+    var a = document.createElement('a');
+    a.href = v.url;
+    a.download = (s ? s.title : '视频') + '_' + marsdenChildName + '.mp4';
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  async function submitMarsden() {
+    var keys = MARSDEN_SLOTS.filter(function (s) { return marsdenVideos[s.key]; }).map(function (s) { return s.key; });
+    if (!keys.length) { alert('请先录至少一段视频'); return; }
+    var btn = $('marsden-upload');
+    btn.disabled = true;
+    try {
+      var media = [];
+      for (var i = 0; i < keys.length; i++) {
+        var key = keys[i];
+        var v = marsdenVideos[key];
+        var ext = (v.file.name.match(/\.\w+$/) || ['mp4'])[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (!ext || ext.length > 5) ext = 'mp4';
+        btn.textContent = '上传中 ' + (i + 1) + '/' + keys.length + ' …';
+        var path = state.childId + '/marsden/' + Date.now() + '_' + key + '.' + ext;
+        var up = await sb.storage.from('media').upload(path, v.file, { contentType: v.file.type || 'video/mp4' });
+        if (up.error) throw new Error('上传失败：' + up.error.message);
+        media.push(path);
+      }
+      var ins = await sb.from('records').insert({
+        child_id: state.childId, type: 'marsden', data: { slots: keys }, media: media
+      });
+      if (ins.error) throw new Error('提交失败：' + ins.error.message);
+      alert('马斯登球视频已回传，视训师能看到啦！');
+      home();
+    } catch (e) {
+      alert(e.message || '上传失败，请重试');
+      btn.disabled = false;
+      btn.textContent = '上传给视训师';
     }
   }
 
