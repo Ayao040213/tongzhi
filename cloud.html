@@ -158,8 +158,17 @@
 
   /* ============ 线上训练 · 追视小球 ============ */
   .pursuit-timer{ text-align:center; font-size:22px; font-weight:700; color:var(--primary); margin:10px 0 4px; letter-spacing:1px; }
-  .pursuit-area{ position:relative; height:420px; background:linear-gradient(180deg,#eaf4f7,#f4f9fb); border-radius:16px; overflow:hidden; margin:10px 0; box-shadow:inset 0 2px 10px rgba(20,60,80,.06); }
+  .pursuit-area{ position:relative; height:min(72vh,720px); min-height:420px; background:linear-gradient(180deg,#eaf4f7,#f4f9fb); border-radius:16px; overflow:hidden; margin:10px 0; box-shadow:inset 0 2px 10px rgba(20,60,80,.06); }
   .pursuit-ball{ position:absolute; left:0; top:0; width:44px; height:44px; border-radius:50%; background:radial-gradient(circle at 35% 35%, #ffc46b, #f2a33c 60%, #d98324); box-shadow:0 4px 14px rgba(242,163,60,.55); will-change:transform; }
+
+  /* ============ 训练游戏全屏层（电脑/大屏） ============ */
+  .game-view{ position:fixed; inset:0; background:var(--bg); z-index:9990; display:none; flex-direction:column; }
+  .game-view.open{ display:flex; }
+  .game-head{ display:flex; justify-content:flex-end; padding:10px 20px 0; }
+  .game-back{ background:none; border:none; color:var(--muted); font-size:15px; cursor:pointer; padding:8px 12px; }
+  #game-body{ flex:1; overflow:auto; padding:0 20px 40px; }
+  .game-inner{ max-width:640px; margin:0 auto; }
+  .game-wide{ max-width:1280px; margin:0 auto; }
 </style>
 </head>
 <body>
@@ -219,6 +228,14 @@
     <span class="crop-hint">拖动移动 · 双指缩放</span>
     <button id="crop-done" class="crop-btn primary">确定裁剪</button>
   </div>
+</div>
+
+<!-- 训练游戏全屏层（电脑/大屏专用） -->
+<div id="game-view" class="game-view">
+  <div class="game-head">
+    <button class="game-back" id="game-back">✕ 退出训练</button>
+  </div>
+  <div id="game-body"></div>
 </div>
 
 <script src="supabase.js"></script>
@@ -920,15 +937,24 @@
     await renderCustomProgress(projId);
   }
 
-  // ---------- 线上训练 · 追视小球 ----------
+  // ---------- 线上训练 · 追视小球（电脑/大屏专用） ----------
   var pursuit = { cid: null, cname: '', dur: 180, speed: 'mid', traj: 'h', raf: null, elapsed: 0, running: false, startedAt: 0 };
+
+  function isBigScreen() { return window.innerWidth >= 900; }
+  function openGame() { $('game-view').classList.add('open'); document.body.style.overflow = 'hidden'; }
+  function closeGame() {
+    $('game-view').classList.remove('open');
+    document.body.style.overflow = '';
+    if (pursuit.running) { pursuit.running = false; if (pursuit.raf) { cancelAnimationFrame(pursuit.raf); pursuit.raf = null; } }
+    home();
+  }
 
   function openPursuitConfig(cid, cname) {
     state.childId = cid;
     pursuit.cid = cid; pursuit.cname = cname;
     pursuit.dur = 180; pursuit.speed = 'mid'; pursuit.traj = 'h';
-    var c = $('content');
-    c.innerHTML =
+    var g = $('game-body');
+    g.innerHTML = '<div class="game-inner">' +
       '<h2 class="page-title">🎾 追视小球</h2>' +
       '<p class="page-sub">孩子：' + esc(cname) + ' · 眼睛跟着小球，头不要动</p>' +
       '<div class="card"><h2>⏱ 训练时长</h2><div class="stage-tabs" id="p-dur">' +
@@ -944,8 +970,7 @@
         '<button class="stage-tab" data-v="v">上下</button>' +
         '<button class="stage-tab" data-v="cw">顺时针</button>' +
         '<button class="stage-tab" data-v="ccw">逆时针</button></div></div>' +
-      '<button class="btn btn-primary" id="p-start">开始训练</button>' +
-      '<button class="btn btn-ghost" onclick="home()">返回</button>';
+      '<button class="btn btn-primary" id="p-start">开始训练</button></div>';
 
     function bindGroup(id, key) {
       var btns = $(id).querySelectorAll('.stage-tab');
@@ -961,16 +986,16 @@
     bindGroup('p-speed', 'speed');
     bindGroup('p-traj', 'traj');
     $('p-start').onclick = startPursuit;
+    openGame();
   }
 
   function startPursuit() {
-    var c = $('content');
-    c.innerHTML =
-      '<h2 class="page-title">🎾 追视小球</h2>' +
+    var g = $('game-body');
+    g.innerHTML = '<div class="game-wide">' +
       '<div class="pursuit-timer" id="p-timer">--:--</div>' +
       '<div class="pursuit-area" id="p-area"><div class="pursuit-ball" id="p-ball"></div></div>' +
       '<div class="small-note">眼睛跟着小球动，头不要动</div>' +
-      '<button class="btn btn-ghost" id="p-stop">结束训练</button>';
+      '<button class="btn btn-ghost" id="p-stop">结束训练</button></div>';
     $('p-stop').onclick = endPursuit;
     pursuit.elapsed = 0;
     pursuit.startedAt = performance.now();
@@ -1008,8 +1033,8 @@
     var actual = Math.round(pursuit.elapsed);
     var trajL = { h: '左右移动', v: '上下移动', cw: '顺时针', ccw: '逆时针' }[pursuit.traj] || '';
     var speedL = { slow: '慢', mid: '中', fast: '快' }[pursuit.speed] || '';
-    var c = $('content');
-    c.innerHTML =
+    var g = $('game-body');
+    g.innerHTML = '<div class="game-inner">' +
       '<h2 class="page-title">训练完成 ✅</h2>' +
       '<div class="card" style="line-height:2.1;">' +
         '<div>轨迹：' + trajL + '</div>' +
@@ -1017,8 +1042,7 @@
         '<div>设定时长：' + Math.round(pursuit.dur / 60) + ' 分钟</div>' +
         '<div>实际完成：' + Math.floor(actual / 60) + ' 分 ' + (actual % 60) + ' 秒</div>' +
       '</div>' +
-      '<button class="btn btn-primary" id="p-checkin">打卡上传给视训师</button>' +
-      '<button class="btn btn-ghost" onclick="home()">返回</button>';
+      '<button class="btn btn-primary" id="p-checkin">打卡上传给视训师</button></div>';
     $('p-checkin').onclick = checkInPursuit;
   }
 
@@ -1032,7 +1056,7 @@
     });
     if (res.error) { alert('打卡失败：' + res.error.message); btn.disabled = false; btn.textContent = '打卡上传给视训师'; return; }
     alert('打卡成功！视训师能看到啦');
-    home();
+    closeGame();
   }
 
   // ---------- 家长端 ----------
@@ -1067,7 +1091,12 @@
     var box = $('child-list');
     if (cr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(cr.error.message) + '</div>'; return; }
     if (!cr.data.length) box.innerHTML = '<div class="empty">视训师还没有添加孩子，等等再来</div>';
+    var isBig = window.innerWidth >= 900;
+    var cols = isBig ? '1fr 1fr' : '1fr 1fr 1fr';
     cr.data.forEach(function (k) {
+      var gameBtn = isBig
+        ? '<button class="btn btn-primary btn-small" onclick="openPursuitConfig(\'' + k.id + '\',\'' + esc(k.name) + '\')">🎾 追视小球</button>'
+        : '';
       box.innerHTML +=
         '<div class="list-item" style="flex-direction:column; align-items:stretch;">' +
           '<div style="display:flex; align-items:center; gap:10px; flex:none;">' +
@@ -1075,14 +1104,17 @@
             '<div><div class="t">' + esc(k.name) + '</div>' +
             '<div class="s">' + (k.age ? (k.age + ' 岁') : '') + '</div></div>' +
           '</div>' +
-          '<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:12px; flex:none;">' +
+          '<div style="display:grid; grid-template-columns:' + cols + '; gap:6px; margin-top:12px; flex:none;">' +
             '<button class="btn btn-primary btn-small" onclick="openEyeForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">眼位照</button>' +
             '<button class="btn btn-primary btn-small" onclick="openMarsdenForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">马斯登球</button>' +
             '<button class="btn btn-ghost btn-small" onclick="openRecordForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">周边训练</button>' +
-            '<button class="btn btn-primary btn-small" onclick="openPursuitConfig(\'' + k.id + '\',\'' + esc(k.name) + '\')">🎾 追视小球</button>' +
+            gameBtn +
           '</div>' +
         '</div>';
     });
+    if (!isBig) {
+      c.innerHTML += '<div class="card" style="padding:12px 16px; font-size:13px; color:var(--muted);">💻 线上训练小游戏需在电脑或投屏大屏上使用（手机屏幕太小，达不到眼动训练效果）</div>';
+    }
     c.innerHTML += '<div style="font-size:15px; font-weight:700; margin:20px 0 4px;">📋 视训师布置的处方</div><div id="rx-home-list"></div>';
     c.innerHTML += '<div style="font-size:15px; font-weight:700; margin:20px 0 4px;">📌 视训师布置的训练</div><div id="custom-home-list"></div>';
     renderRxHome(cr.data || []);
@@ -1791,6 +1823,9 @@
   document.addEventListener('mousemove', cropMouseMove);
   document.addEventListener('mouseup', cropMouseUp);
   cropVp.addEventListener('wheel', cropWheel, { passive: false });
+
+  // 训练游戏全屏层：退出按钮
+  $('game-back').onclick = closeGame;
 
   // 启动：已登录则直接进入
   (async function init() {
