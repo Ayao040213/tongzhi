@@ -67,6 +67,14 @@
   .msg{ margin-top:12px; font-size:14px; white-space:pre-wrap; }
   .msg.err{ color:var(--bad); } .msg.ok{ color:var(--success); }
 
+  /* ============ 训练处方 ============ */
+  textarea{ width:100%; padding:12px; font-size:15px; color:var(--text); border:1px solid var(--line); border-radius:12px; background:#fff; min-height:90px; resize:vertical; font-family:inherit; }
+  textarea:focus{ outline:none; border-color:var(--primary); }
+  .rx-check{ display:flex; align-items:center; gap:10px; margin:0 0 8px; font-size:15px; font-weight:600; color:var(--text); cursor:pointer; }
+  .rx-check input[type=checkbox]{ width:18px; height:18px; margin:0; accent-color:var(--primary); flex-shrink:0; }
+  .rx-param{ margin:0; }
+  .rx-preview{ background:#f7fafb; border:1px dashed var(--line); border-radius:12px; padding:14px; font-size:14px; white-space:pre-wrap; color:var(--text); margin-top:12px; }
+
   /* ============ 列表项（卡片式）============ */
   .list-item{
     background:var(--card); margin:10px 0; border-radius:14px; padding:14px 16px;
@@ -180,7 +188,7 @@
   var sb = window.supabase.createClient(SUPABASE_URL, ANON_KEY);
 
   var $ = function (id) { return document.getElementById(id); };
-  var state = { user: null, profile: null, familyId: null, childId: null };
+  var state = { user: null, profile: null, familyId: null, childId: null, childName: null };
 
   // ---------- 工具 ----------
   function esc(s) {
@@ -371,7 +379,7 @@
       box.innerHTML +=
         '<div class="list-item"><span class="icon">👶</span><div><div class="t">' + esc(k.name) + '</div>' +
         '<div class="s">' + (k.age ? (k.age + ' 岁') : '') + '</div></div>' +
-        '<button class="btn btn-primary btn-small" onclick="openChild(\'' + k.id + '\')">看回传</button></div>';
+        '<button class="btn btn-primary btn-small" onclick="openChild(\'' + k.id + '\')">档案</button></div>';
     });
   }
   async function addChild() {
@@ -385,11 +393,17 @@
     state.childId = cid;
     var res = await sb.from('children').select('name').eq('id', cid).single();
     var cname = res.data ? res.data.name : '';
+    state.childName = cname;
     var c = $('content');
-    c.innerHTML = '<h2 class="page-title">' + esc(cname) + ' 的回传</h2>' +
-      '<p class="page-sub">分三类查看训练回传</p>' +
+    c.innerHTML = '<h2 class="page-title">' + esc(cname) + ' 的档案</h2>' +
+      '<p class="page-sub">训练处方 + 回传记录</p>' +
+      '<div style="font-size:15px; font-weight:700; margin:18px 0 4px;">📋 训练处方</div>' +
+      '<div id="rx-list"></div>' +
+      '<button class="btn btn-ghost" onclick="newRx()">＋ 新建处方</button>' +
+      '<div style="font-size:15px; font-weight:700; margin:18px 0 4px;">📥 看回传</div>' +
       '<div id="mod-list"></div>' +
       '<button class="btn btn-ghost" onclick="openFamily(\'' + state.familyId + '\')">返回</button>';
+    renderRxList();
     var rr = await sb.from('records').select('type').eq('child_id', cid);
     var box = $('mod-list');
     if (rr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(rr.error.message) + '</div>'; return; }
@@ -465,6 +479,146 @@
     }
   }
 
+  // ---------- 训练处方（视训师开 → 家长手机看） ----------
+  var RX_PROJECTS = [
+    { key: 'eye',        title: '眼肌拉伸', param: '右眼/左眼/双眼，8 方位 + 正视各 5 秒' },
+    { key: 'marsden',    title: '马斯登球', param: '追随 / 反 / 停，各 3 组' },
+    { key: 'peripheral', title: '周边训练', param: '金银球，10 次一组 × 2 组' }
+  ];
+
+  function todayStrCN() {
+    var d = new Date();
+    return d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日';
+  }
+  function rxProjectsOf(p) {
+    try { return JSON.parse(p.items || '[]'); } catch (e) { return []; }
+  }
+  function rxText(p, cname) {
+    var projects = rxProjectsOf(p);
+    return '【瞳治视觉训练助手 · 训练处方】\n' +
+      '孩子：' + (cname || '') + '\n' +
+      '日期：' + (p.title || '') + '\n' +
+      projects.map(function (pr, i) { return (i + 1) + '. ' + pr.title + '：' + (pr.param || ''); }).join('\n') +
+      (p.note ? '\n注意：' + p.note : '') +
+      '\n—— 练完记得回传（拍照/录像/记命中）发给视训师。';
+  }
+
+  // 视训师：孩子档案里列出处方
+  async function renderRxList() {
+    var box = $('rx-list');
+    if (!box) return;
+    box.innerHTML = '<div class="empty">读取中…</div>';
+    var res = await sb.from('prescriptions').select('*').eq('child_id', state.childId).order('created_at', { ascending: false });
+    if (res.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(res.error.message) + '</div>'; return; }
+    box.innerHTML = '';
+    if (!res.data.length) { box.innerHTML = '<div class="empty">还没有处方，点下方「＋ 新建处方」。</div>'; return; }
+    res.data.forEach(function (p) {
+      var titles = rxProjectsOf(p).map(function (x) { return x.title; }).join(' / ');
+      box.innerHTML +=
+        '<div class="list-item"><div><div class="t">' + esc(p.title || '处方') + '</div>' +
+        '<div class="s">' + esc(titles) + '</div></div>' +
+        '<button class="btn btn-ghost btn-small" onclick="delRx(\'' + p.id + '\')">删除</button></div>';
+    });
+  }
+
+  async function delRx(id) {
+    if (!confirm('确定删除这张处方？')) return;
+    var res = await sb.from('prescriptions').delete().eq('id', id);
+    if (res.error) { alert('删除失败：' + res.error.message); return; }
+    renderRxList();
+  }
+
+  // 视训师：新建处方
+  function newRx() {
+    var c = $('content');
+    c.innerHTML =
+      '<h2 class="page-title">新建处方</h2>' +
+      '<p class="page-sub">勾选项目、改参数、写注意事项，保存后家长在手机上就能看到</p>' +
+      '<div id="rx-projects"></div>' +
+      '<div class="card"><h2>📝 注意事项</h2>' +
+      '<textarea id="rx-note" placeholder="如：单眼时遮另一只眼；练完拍照回传…"></textarea></div>' +
+      '<button class="btn btn-primary" id="rx-gen">生成处方卡</button>' +
+      '<div class="rx-preview" id="rx-preview" style="display:none;"></div>' +
+      '<button class="btn btn-primary" id="rx-save" style="display:none;">保存到档案</button>' +
+      '<button class="btn btn-ghost" onclick="openChild(\'' + state.childId + '\')">返回</button>';
+    var box = $('rx-projects');
+    RX_PROJECTS.forEach(function (p) {
+      box.innerHTML +=
+        '<div class="card">' +
+        '<label class="rx-check"><input type="checkbox" data-key="' + p.key + '" checked> ' + esc(p.title) + '</label>' +
+        '<input type="text" class="rx-param" data-key="' + p.key + '" value="' + esc(p.param) + '"></div>';
+    });
+    $('rx-gen').onclick = genRx;
+    $('rx-save').onclick = saveRx;
+  }
+
+  function collectRxDraft() {
+    var projects = [];
+    var checks = $('rx-projects').querySelectorAll('.rx-check input:checked');
+    for (var i = 0; i < checks.length; i++) {
+      var key = checks[i].getAttribute('data-key');
+      var p = RX_PROJECTS.filter(function (x) { return x.key === key; })[0];
+      var param = $('rx-projects').querySelector('.rx-param[data-key="' + key + '"]').value.trim();
+      projects.push({ key: key, title: p.title, param: param });
+    }
+    return { projects: projects, note: $('rx-note').value.trim() };
+  }
+
+  function genRx() {
+    var draft = collectRxDraft();
+    if (!draft.projects.length) { alert('请至少勾选一个训练项目'); return; }
+    var p = { title: todayStrCN(), items: JSON.stringify(draft.projects), note: draft.note };
+    $('rx-preview').textContent = rxText(p, state.childName);
+    $('rx-preview').style.display = 'block';
+    $('rx-save').style.display = 'block';
+  }
+
+  async function saveRx() {
+    var draft = collectRxDraft();
+    if (!draft.projects.length) { alert('请至少勾选一个训练项目'); return; }
+    var res = await sb.from('prescriptions').insert({
+      child_id: state.childId, title: todayStrCN(), items: JSON.stringify(draft.projects), note: draft.note
+    });
+    if (res.error) { alert('保存失败：' + res.error.message); return; }
+    alert('处方已保存，家长能看到啦！');
+    openChild(state.childId);
+  }
+
+  // 家长：首页列出处方 + 查看详情
+  async function renderRxHome(children) {
+    var box = $('rx-home-list');
+    if (!box) return;
+    var res = await sb.from('prescriptions').select('*');
+    if (res.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(res.error.message) + '</div>'; return; }
+    if (!res.data.length) { box.innerHTML = '<div class="empty">视训师还没有开处方</div>'; return; }
+    var nameOf = {};
+    children.forEach(function (k) { nameOf[k.id] = k.name; });
+    res.data.sort(function (a, b) { return new Date(b.created_at) - new Date(a.created_at); }).forEach(function (p) {
+      var titles = rxProjectsOf(p).map(function (x) { return x.title; }).join(' / ');
+      box.innerHTML +=
+        '<div class="list-item" style="cursor:pointer;" onclick="viewRx(\'' + p.id + '\')">' +
+          '<span class="icon">📋</span>' +
+          '<div><div class="t">' + esc(nameOf[p.child_id] || '孩子') + ' · ' + esc(p.title || '处方') + '</div>' +
+          '<div class="s">' + esc(titles) + '</div></div>' +
+          '<span class="chev">›</span>' +
+        '</div>';
+    });
+  }
+
+  async function viewRx(id) {
+    var res = await sb.from('prescriptions').select('*').eq('id', id).single();
+    if (res.error || !res.data) { alert('读不到这张处方'); return; }
+    var p = res.data;
+    var cname = '';
+    var cr = await sb.from('children').select('name').eq('id', p.child_id).single();
+    if (cr.data) cname = cr.data.name;
+    var c = $('content');
+    c.innerHTML = '<h2 class="page-title">📋 训练处方</h2>' +
+      '<div class="card"><div class="rx-preview" id="rx-detail-text" style="margin:0; border:none; background:none; padding:4px;"></div></div>' +
+      '<button class="btn btn-ghost" onclick="home()">返回</button>';
+    $('rx-detail-text').textContent = rxText(p, cname);
+  }
+
   // ---------- 家长端 ----------
   function renderParentHome() {
     renderTopbar();
@@ -512,6 +666,8 @@
           '</div>' +
         '</div>';
     });
+    c.innerHTML += '<div style="font-size:15px; font-weight:700; margin:20px 0 4px;">📋 视训师布置的处方</div><div id="rx-home-list"></div>';
+    renderRxHome(cr.data || []);
   }
   function openRecordForm(cid, cname) {
     state.childId = cid;
