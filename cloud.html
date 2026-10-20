@@ -136,6 +136,19 @@
   #iv-img { max-width:100%; max-height:100%; user-select:none; -webkit-user-select:none; -webkit-user-drag:none; transform:translate(0,0) scale(1); transform-origin:center center; will-change:transform; }
   .iv-close { position:fixed; top:12px; right:12px; width:36px; height:36px; border-radius:50%; border:none; background:rgba(255,255,255,.22); color:#fff; font-size:18px; line-height:1; cursor:pointer; z-index:10001; }
   .iv-hint { position:fixed; bottom:20px; left:0; right:0; text-align:center; color:rgba(255,255,255,.55); font-size:12px; pointer-events:none; }
+
+  /* ============ 照片裁剪弹窗 ============ */
+  .crop-modal{ position:fixed; inset:0; background:#000; z-index:10000; display:none; flex-direction:column; }
+  .crop-modal.open{ display:flex; }
+  .crop-top{ display:flex; align-items:center; justify-content:space-between; padding:12px 16px; }
+  .crop-btn{ background:none; border:none; color:#fff; font-size:16px; padding:8px 14px; cursor:pointer; }
+  .crop-btn.primary{ background:var(--primary); border-radius:999px; font-weight:600; }
+  .crop-title{ color:#fff; font-size:16px; font-weight:600; }
+  .crop-body{ flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden; padding:0 16px; }
+  .crop-viewport{ position:relative; width:100%; max-width:420px; aspect-ratio:1/1; overflow:hidden; background:#111; touch-action:none; outline:2px solid rgba(255,255,255,.35); outline-offset:-2px; }
+  #crop-img{ position:absolute; left:0; top:0; transform-origin:0 0; will-change:transform; max-width:none; }
+  .crop-bottom{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px 20px; }
+  .crop-hint{ color:rgba(255,255,255,.6); font-size:13px; }
 </style>
 </head>
 <body>
@@ -178,6 +191,23 @@
   <button class="iv-close" id="iv-close">✕</button>
   <img id="iv-img" src="" alt="">
   <div class="iv-hint">双指缩放 · 双击放大 · 点空白处关闭</div>
+</div>
+
+<!-- 裁剪弹窗：把照片裁成正方形再进九宫格 -->
+<div id="crop-modal" class="crop-modal">
+  <div class="crop-top">
+    <button id="crop-cancel" class="crop-btn">取消</button>
+    <span class="crop-title">裁成正方形</span>
+  </div>
+  <div class="crop-body">
+    <div class="crop-viewport" id="crop-viewport">
+      <img id="crop-img" draggable="false" alt="">
+    </div>
+  </div>
+  <div class="crop-bottom">
+    <span class="crop-hint">拖动移动 · 双指缩放</span>
+    <button id="crop-done" class="crop-btn primary">确定裁剪</button>
+  </div>
 </div>
 
 <script src="supabase.js"></script>
@@ -745,7 +775,7 @@
   var EYE_STAGES = [
     { id:'right',  label:'右眼', cellW:560, cellH:560 },
     { id:'left',   label:'左眼', cellW:560, cellH:560 },
-    { id:'double', label:'双眼', cellW:560, cellH:420 }
+    { id:'double', label:'双眼', cellW:560, cellH:560 }
   ];
   var eyeStage = 'right';
   var eyePhotos = {};       // eyePhotos[阶段][方位] = { url, file }
@@ -813,7 +843,7 @@
   function buildEyeGrid() {
     var grid = $('eye-grid');
     if (!grid) return;
-    grid.className = 'photo-grid ' + (eyeStage === 'double' ? 'wide' : 'square');
+    grid.className = 'photo-grid square';
     grid.innerHTML = '';
     EYE_DIRS.forEach(function (d) {
       var cell = document.createElement('div');
@@ -854,13 +884,9 @@
   }
   function handleEyeFile(f) {
     if (!f || !eyePendingDir) return;
-    var dir = eyePendingDir;
-    var p = eyeCurPhotos();
-    var old = p[dir];
-    if (old && old.url) URL.revokeObjectURL(old.url);
-    p[dir] = { url: URL.createObjectURL(f), file: f };
-    renderEyeThumb(dir);
-    refreshEyeStatus();
+    openCropModal(f, eyePendingDir);
+    var input = $(eyeSource === 'camera' ? 'eye-input-camera' : 'eye-input');
+    input.value = '';
   }
 
   function refreshEyeStatus() {
@@ -895,10 +921,10 @@
   }
   async function generateEyeCanvas() {
     var cfg = eyeStageCfg();
-    var CELL = cfg.cellW, CELLH = cfg.cellH;
-    var LABEL = 28, GAP = 8, PAD = 20, TITLE = 40;
+    var CELL = cfg.cellW, CH = cfg.cellH;
+    var LB = 30, GAP = 8, PAD = 20, TITLE = 40;
     var gw = PAD * 2 + CELL * 3 + GAP * 2;
-    var gh = TITLE + PAD * 2 + CELLH * 3 + GAP * 2;
+    var gh = TITLE + PAD * 2 + CH * 3 + GAP * 2;
     var canvas = document.createElement('canvas');
     canvas.width = gw; canvas.height = gh;
     var ctx = canvas.getContext('2d');
@@ -908,25 +934,36 @@
     ctx.font = 'bold 22px "PingFang SC","Microsoft YaHei",sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(eyeChildName + ' · 眼肌拉伸 · ' + eyeStageLabel() + ' · ' + eyeDateStr(), gw / 2, TITLE / 2);
+    // 九宫格：每格先裁剪再画照片，铺满整格（多余裁掉）→ 九张大小统一、不串格
     for (var i = 0; i < EYE_DIRS.length; i++) {
       var d = EYE_DIRS[i];
       var x = PAD + d.col * (CELL + GAP);
-      var y = TITLE + PAD + d.row * (CELLH + GAP);
-      ctx.fillStyle = '#1a7a8c'; ctx.fillRect(x, y, CELL, LABEL);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 16px "PingFang SC","Microsoft YaHei",sans-serif';
-      ctx.fillText(d.name, x + CELL / 2, y + LABEL / 2);
-      var imgY = y + LABEL, imgH = CELLH - LABEL;
+      var y = TITLE + PAD + d.row * (CH + GAP);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, y, CELL, CH);
+      ctx.clip();
       var p = eyeCurPhotos()[d.name];
       if (p) {
         var im = await eyeLoadImage(p.url);
-        var s = Math.max(CELL / im.width, imgH / im.height);
+        var s = Math.max(CELL / im.width, CH / im.height);
         var w = im.width * s, h = im.height * s;
-        ctx.drawImage(im, x + (CELL - w) / 2, imgY + (imgH - h) / 2, w, h);
+        ctx.drawImage(im, x + (CELL - w) / 2, y + (CH - h) / 2, w, h);
       } else {
-        ctx.fillStyle = '#eef4f6'; ctx.fillRect(x, imgY, CELL, imgH);
-        ctx.fillStyle = '#9aa7ad'; ctx.fillText('缺', x + CELL / 2, imgY + imgH / 2);
+        ctx.fillStyle = '#eef4f6'; ctx.fillRect(x, y, CELL, CH);
+        ctx.fillStyle = '#9aa7ad';
+        ctx.font = 'bold 20px "PingFang SC","Microsoft YaHei",sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('缺', x + CELL / 2, y + CH / 2);
       }
+      ctx.restore();
+      // 方位标签：叠在照片顶部的半透明条，不占照片高度
+      ctx.fillStyle = 'rgba(26,122,140,0.85)';
+      ctx.fillRect(x, y, CELL, LB);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 17px "PingFang SC","Microsoft YaHei",sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(d.name, x + CELL / 2, y + LB / 2);
     }
     return canvas;
   }
@@ -1199,6 +1236,140 @@
   }
   function ivMouseUp() { iv.mouseDrag = null; }
 
+  // ---------- 照片裁剪（正方形）----------
+  var crop = { file: null, dir: null, img: null, s: 1, ox: 0, oy: 0, iw: 0, ih: 0, W: 0, baseScale: 1, dragging: false, lastX: 0, lastY: 0, pinch: null, _url: null };
+
+  function openCropModal(file, dir) {
+    crop.file = file; crop.dir = dir;
+    crop._url = URL.createObjectURL(file);
+    var img = $('crop-img');
+    img.onload = initCrop;
+    img.onerror = function () { alert('这张图读不出来，请换一张'); closeCrop(); };
+    img.src = crop._url;
+    $('crop-modal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function initCrop() {
+    var img = $('crop-img');
+    crop.img = img;
+    crop.iw = img.naturalWidth || img.width;
+    crop.ih = img.naturalHeight || img.height;
+    crop.W = $('crop-viewport').clientWidth;
+    crop.baseScale = Math.max(crop.W / crop.iw, crop.W / crop.ih);
+    crop.s = crop.baseScale;
+    crop.ox = (crop.W - crop.iw * crop.s) / 2;
+    crop.oy = (crop.W - crop.ih * crop.s) / 2;
+    applyCrop();
+  }
+  function applyCrop() {
+    $('crop-img').style.transform = 'translate(' + crop.ox + 'px,' + crop.oy + 'px) scale(' + crop.s + ')';
+  }
+  function cropClamp() {
+    var W = crop.W;
+    crop.ox = Math.max(W - crop.iw * crop.s, Math.min(0, crop.ox));
+    crop.oy = Math.max(W - crop.ih * crop.s, Math.min(0, crop.oy));
+  }
+  function cropVpLocal(clientX, clientY) {
+    var r = $('crop-viewport').getBoundingClientRect();
+    return { x: clientX - r.left, y: clientY - r.top };
+  }
+  function cropZoom(ratio, fx, fy) {
+    var ns = crop.s * ratio;
+    var maxS = crop.baseScale * 5;
+    ns = Math.max(crop.baseScale, Math.min(maxS, ns));
+    if (ns === crop.s) return;
+    var imgX = (fx - crop.ox) / crop.s;
+    var imgY = (fy - crop.oy) / crop.s;
+    crop.s = ns;
+    crop.ox = fx - imgX * crop.s;
+    crop.oy = fy - imgY * crop.s;
+    cropClamp(); applyCrop();
+  }
+  function cropTouchStart(e) {
+    if (e.touches.length === 1) {
+      var p = cropVpLocal(e.touches[0].clientX, e.touches[0].clientY);
+      crop.dragging = true; crop.lastX = p.x; crop.lastY = p.y;
+    } else if (e.touches.length === 2) {
+      crop.dragging = false;
+      var a = cropVpLocal(e.touches[0].clientX, e.touches[0].clientY);
+      var b = cropVpLocal(e.touches[1].clientX, e.touches[1].clientY);
+      crop.pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
+    }
+  }
+  function cropTouchMove(e) {
+    if (e.touches.length === 1 && crop.dragging) {
+      var p = cropVpLocal(e.touches[0].clientX, e.touches[0].clientY);
+      crop.ox += p.x - crop.lastX;
+      crop.oy += p.y - crop.lastY;
+      crop.lastX = p.x; crop.lastY = p.y;
+      cropClamp(); applyCrop();
+    } else if (e.touches.length === 2 && crop.pinch) {
+      var a = cropVpLocal(e.touches[0].clientX, e.touches[0].clientY);
+      var b = cropVpLocal(e.touches[1].clientX, e.touches[1].clientY);
+      var d = Math.hypot(a.x - b.x, a.y - b.y);
+      var cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+      var ns = crop.s * (d / crop.pinch.dist);
+      var maxS = crop.baseScale * 5;
+      ns = Math.max(crop.baseScale, Math.min(maxS, ns));
+      var imgX = (cx - crop.ox) / crop.s, imgY = (cy - crop.oy) / crop.s;
+      crop.s = ns;
+      crop.ox = cx - imgX * crop.s;
+      crop.oy = cy - imgY * crop.s;
+      crop.pinch.dist = d; crop.pinch.cx = cx; crop.pinch.cy = cy;
+      cropClamp(); applyCrop();
+    }
+  }
+  function cropTouchEnd() { crop.dragging = false; crop.pinch = null; }
+
+  // 桌面：鼠标拖 + 滚轮缩放（真机用触屏，这两条方便电脑上测）
+  function cropMouseDown(e) {
+    var p = cropVpLocal(e.clientX, e.clientY);
+    crop.dragging = true; crop.lastX = p.x; crop.lastY = p.y;
+    e.preventDefault();
+  }
+  function cropMouseMove(e) {
+    if (!crop.dragging) return;
+    var p = cropVpLocal(e.clientX, e.clientY);
+    crop.ox += p.x - crop.lastX;
+    crop.oy += p.y - crop.lastY;
+    crop.lastX = p.x; crop.lastY = p.y;
+    cropClamp(); applyCrop();
+  }
+  function cropMouseUp() { crop.dragging = false; }
+  function cropWheel(e) {
+    var p = cropVpLocal(e.clientX, e.clientY);
+    cropZoom(e.deltaY < 0 ? 1.12 : 1 / 1.12, p.x, p.y);
+    e.preventDefault();
+  }
+
+  function confirmCrop() {
+    if (!crop.img || !crop.file) return;
+    var OUT = 840;
+    var canvas = document.createElement('canvas');
+    canvas.width = OUT; canvas.height = OUT;
+    var ctx = canvas.getContext('2d');
+    var cropX = (0 - crop.ox) / crop.s;
+    var cropY = (0 - crop.oy) / crop.s;
+    var cropW = crop.W / crop.s;
+    ctx.drawImage(crop.img, cropX, cropY, cropW, cropW, 0, 0, OUT, OUT);
+    canvas.toBlob(function (blob) {
+      var dir = crop.dir;
+      var p = eyeCurPhotos();
+      var old = p[dir];
+      if (old && old.url) URL.revokeObjectURL(old.url);
+      p[dir] = { url: URL.createObjectURL(blob), file: blob };
+      renderEyeThumb(dir);
+      refreshEyeStatus();
+      closeCrop();
+    }, 'image/jpeg', 0.9);
+  }
+  function closeCrop() {
+    $('crop-modal').classList.remove('open');
+    document.body.style.overflow = '';
+    if (crop._url) { URL.revokeObjectURL(crop._url); crop._url = null; }
+    crop.file = null; crop.dir = null; crop.img = null; crop.dragging = false; crop.pinch = null;
+  }
+
   // ---------- 绑定事件 ----------
   $('login-btn').onclick = signIn;
   $('signup-btn').onclick = signUp;
@@ -1219,6 +1390,18 @@
   ivImg.addEventListener('mousedown', ivMouseDown);
   document.addEventListener('mousemove', ivMouseMove);
   document.addEventListener('mouseup', ivMouseUp);
+
+  // 裁剪弹窗：绑定手势与按钮
+  var cropVp = $('crop-viewport');
+  $('crop-cancel').onclick = closeCrop;
+  $('crop-done').onclick = confirmCrop;
+  cropVp.addEventListener('touchstart', cropTouchStart, { passive: true });
+  cropVp.addEventListener('touchmove', cropTouchMove, { passive: true });
+  cropVp.addEventListener('touchend', cropTouchEnd, { passive: true });
+  cropVp.addEventListener('mousedown', cropMouseDown);
+  document.addEventListener('mousemove', cropMouseMove);
+  document.addEventListener('mouseup', cropMouseUp);
+  cropVp.addEventListener('wheel', cropWheel, { passive: false });
 
   // 启动：已登录则直接进入
   (async function init() {
