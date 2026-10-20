@@ -516,9 +516,24 @@
         html += '<div class="orig-box" style="display:none;">' + origHtml + '</div>' +
           '<button class="btn btn-ghost btn-small" style="margin-top:8px;" onclick="toggleOrig(this)">看原画质</button>';
       }
-      html += '</div></div>';
+      html += '</div><button class="btn btn-ghost btn-small" style="flex-shrink:0;" onclick="deleteRecord(\'' + r.id + '\',\'' + type + '\')">删除</button></div>';
       box.innerHTML += html;
     }
+  }
+
+  // 视训师：删除一条回传（连同它的照片/视频文件）
+  async function deleteRecord(recId, type) {
+    if (!confirm('确定删除这条回传？相关的照片/视频也会一起删除。')) return;
+    var r = await sb.from('records').select('media,data').eq('id', recId).single();
+    if (r.data) {
+      var paths = (r.data.media || []).slice();
+      var orig = (r.data.data && r.data.data.originals) || [];
+      orig.forEach(function (p) { paths.push(p); });
+      if (paths.length) { await sb.storage.from('media').remove(paths); }
+    }
+    var res = await sb.from('records').delete().eq('id', recId);
+    if (res.error) { alert('删除失败：' + res.error.message); return; }
+    openChildType(state.childId, type);
   }
 
   // ---------- 训练处方（视训师开 → 家长手机看） ----------
