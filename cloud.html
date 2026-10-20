@@ -149,6 +149,12 @@
   #crop-img{ position:absolute; left:0; top:0; transform-origin:0 0; will-change:transform; max-width:none; }
   .crop-bottom{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px 20px; }
   .crop-hint{ color:rgba(255,255,255,.6); font-size:13px; }
+
+  /* ============ 自定义训练 · 素材/回传缩略图 ============ */
+  .custom-assets{ display:flex; flex-wrap:wrap; gap:8px; }
+  .custom-assets .asset{ position:relative; width:80px; height:80px; border-radius:10px; overflow:hidden; border:1px solid var(--line); background:#eef4f6; }
+  .custom-assets .asset img, .custom-assets .asset video{ width:100%; height:100%; object-fit:cover; display:block; }
+  .custom-assets .asset .x{ position:absolute; top:2px; right:2px; width:20px; height:20px; background:rgba(0,0,0,.65); color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; line-height:1; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -426,14 +432,18 @@
     state.childName = cname;
     var c = $('content');
     c.innerHTML = '<h2 class="page-title">' + esc(cname) + ' 的档案</h2>' +
-      '<p class="page-sub">训练处方 + 回传记录</p>' +
+      '<p class="page-sub">训练处方 · 自定义训练 · 回传记录</p>' +
       '<div style="font-size:15px; font-weight:700; margin:18px 0 4px;">📋 训练处方</div>' +
       '<div id="rx-list"></div>' +
       '<button class="btn btn-ghost" onclick="newRx()">＋ 新建处方</button>' +
+      '<div style="font-size:15px; font-weight:700; margin:18px 0 4px;">📌 自定义训练</div>' +
+      '<div id="custom-list"></div>' +
+      '<button class="btn btn-ghost" onclick="newCustom()">＋ 新建自定义训练</button>' +
       '<div style="font-size:15px; font-weight:700; margin:18px 0 4px;">📥 看回传</div>' +
       '<div id="mod-list"></div>' +
       '<button class="btn btn-ghost" onclick="openFamily(\'' + state.familyId + '\')">返回</button>';
     renderRxList();
+    renderCustomList();
     var rr = await sb.from('records').select('type').eq('child_id', cid);
     var box = $('mod-list');
     if (rr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(rr.error.message) + '</div>'; return; }
@@ -441,7 +451,8 @@
     var types = [
       { key: 'eye', label: '眼位照', icon: '👁️', desc: '九宫格眼位图' },
       { key: 'marsden', label: '马斯登球', icon: '🎾', desc: '三段训练视频' },
-      { key: 'peripheral', label: '周边训练', icon: '🎯', desc: '命中次数 + 照片/视频' }
+      { key: 'peripheral', label: '周边训练', icon: '🎯', desc: '命中次数 + 照片/视频' },
+      { key: 'custom', label: '自定义训练', icon: '📌', desc: '教程回传照片' }
     ];
     for (var i = 0; i < types.length; i++) {
       var t = types[i];
@@ -460,7 +471,7 @@
     state.childId = cid;
     var res = await sb.from('children').select('name').eq('id', cid).single();
     var cname = res.data ? res.data.name : '';
-    var typeLabel = type === 'eye' ? '眼位照' : (type === 'marsden' ? '马斯登球' : '周边训练');
+    var typeLabel = type === 'eye' ? '眼位照' : (type === 'marsden' ? '马斯登球' : (type === 'custom' ? '自定义训练' : '周边训练'));
     var c = $('content');
     c.innerHTML = '<h2 class="page-title">' + esc(cname) + ' · ' + typeLabel + '</h2>' +
       '<div id="rec-list"></div>' +
@@ -476,6 +487,7 @@
       if (r.type === 'peripheral') desc = '命中 ' + (d.hit || 0) + ' 次 · 未中 ' + (d.miss || 0) + ' 次';
       else if (r.type === 'eye') desc = '眼位照 · ' + eyeStageName(d.stage);
       else if (r.type === 'marsden') desc = '马斯登球 · ' + ((d.slots && d.slots.length) ? (d.slots.length + ' 段视频') : '视频');
+      else if (r.type === 'custom') desc = '自定义训练 · ' + (d.custom_title || '回传');
       else desc = r.type;
       var html = '<div class="list-item"><div><div class="t">' + esc(desc) + '</div>' +
         '<div class="s">' + fmtTime(r.created_at) + '</div>';
@@ -649,6 +661,239 @@
     $('rx-detail-text').textContent = rxText(p, cname);
   }
 
+  // ---------- 自定义训练（视训师布置教程 → 家长看 + 回传） ----------
+  var customMedia = [];       // 编辑器素材：[{file?, path?, url, type}]
+  var customDraftId = null;   // 正在编辑的项目 id（null=新建）
+
+  // 视训师：孩子档案里的自定义训练列表
+  async function renderCustomList() {
+    var box = $('custom-list');
+    if (!box) return;
+    box.innerHTML = '<div class="empty">读取中…</div>';
+    var res = await sb.from('custom_projects').select('*').eq('child_id', state.childId).order('created_at', { ascending: false });
+    if (res.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(res.error.message) + '</div>'; return; }
+    box.innerHTML = '';
+    if (!res.data.length) { box.innerHTML = '<div class="empty">还没有自定义训练，点下方「＋ 新建自定义训练」。</div>'; return; }
+    res.data.forEach(function (p) {
+      box.innerHTML +=
+        '<div class="list-item"><div><div class="t">' + esc(p.title || '未命名') + '</div>' +
+        '<div class="s">' + fmtTime(p.created_at) + '</div></div>' +
+        '<span style="display:flex; gap:6px;">' +
+        '<button class="btn btn-ghost btn-small" onclick="openCustomEditor(\'' + p.id + '\')">编辑</button>' +
+        '<button class="btn btn-ghost btn-small" onclick="delCustom(\'' + p.id + '\')">删除</button></span></div>';
+    });
+  }
+
+  async function delCustom(id) {
+    if (!confirm('确定删除这个自定义训练？')) return;
+    var res = await sb.from('custom_projects').delete().eq('id', id);
+    if (res.error) { alert('删除失败：' + res.error.message); return; }
+    renderCustomList();
+  }
+
+  // 视训师：新建 / 编辑自定义训练
+  function newCustom() { openCustomEditor(null); }
+
+  async function openCustomEditor(id) {
+    customDraftId = id;
+    customMedia = [];
+    var p = null;
+    if (id) {
+      var r = await sb.from('custom_projects').select('*').eq('id', id).single();
+      if (r.data) p = r.data;
+    }
+    var c = $('content');
+    c.innerHTML =
+      '<h2 class="page-title">自定义训练</h2>' +
+      '<p class="page-sub">' + (p ? '编辑' : '给「' + esc(state.childName || '孩子') + '」布置') + '</p>' +
+      '<div class="card"><h2>🏷 训练名称</h2><input id="custom-name" placeholder="如：追视训练、手眼协调…" value="' + (p ? esc(p.title) : '') + '"></div>' +
+      '<div class="card"><h2>📝 教程内容</h2><textarea id="custom-desc" placeholder="写清楚家长怎么带着练，可分步骤…">' + (p ? esc(p.content || '') : '') + '</textarea></div>' +
+      '<div class="card"><h2>📎 图片 / 视频素材</h2>' +
+      '<div class="custom-assets" id="custom-media"></div>' +
+      '<div style="display:flex; gap:8px; margin-top:12px;">' +
+      '<button class="btn btn-ghost btn-small" id="custom-add-img">＋ 图片</button>' +
+      '<button class="btn btn-ghost btn-small" id="custom-add-video">＋ 视频</button></div></div>' +
+      '<button class="btn btn-primary" id="custom-save">保存并布置</button>' +
+      '<button class="btn btn-ghost" onclick="openChild(\'' + state.childId + '\')">返回</button>' +
+      '<input type="file" id="custom-img-input" accept="image/*" multiple style="position:absolute; left:-9999px; width:1px; height:1px;">' +
+      '<input type="file" id="custom-video-input" accept="video/*" multiple style="position:absolute; left:-9999px; width:1px; height:1px;">';
+    // 已有素材：用签名链接显示
+    if (p && p.media && p.media.length) {
+      for (var i = 0; i < p.media.length; i++) {
+        var m = p.media[i];
+        var path = m.path || m;
+        var type = m.type || (/\.(mp4|mov|webm|m4v)$/i.test(path) ? 'video' : 'image');
+        var su = await sb.storage.from('media').createSignedUrl(path, 3600);
+        if (su.data && su.data.signedUrl) customMedia.push({ path: path, url: su.data.signedUrl, type: type });
+      }
+    }
+    renderCustomAssets();
+    $('custom-add-img').onclick = function () { $('custom-img-input').click(); };
+    $('custom-add-video').onclick = function () { $('custom-video-input').click(); };
+    $('custom-img-input').onchange = function () { addCustomFiles($('custom-img-input').files, 'image'); $('custom-img-input').value = ''; };
+    $('custom-video-input').onchange = function () { addCustomFiles($('custom-video-input').files, 'video'); $('custom-video-input').value = ''; };
+    $('custom-save').onclick = saveCustom;
+  }
+
+  function addCustomFiles(files, type) {
+    for (var i = 0; i < files.length; i++) {
+      customMedia.push({ file: files[i], url: URL.createObjectURL(files[i]), type: type });
+    }
+    renderCustomAssets();
+  }
+  function renderCustomAssets() {
+    var box = $('custom-media');
+    if (!box) return;
+    box.innerHTML = '';
+    if (!customMedia.length) { box.innerHTML = '<div class="empty" style="padding:8px 0;">还没有素材，可加图片或视频</div>'; return; }
+    customMedia.forEach(function (m, i) {
+      var d = document.createElement('div');
+      d.className = 'asset';
+      d.innerHTML = (m.type === 'video' ? '<video src="' + m.url + '" muted></video>' : '<img src="' + m.url + '">') + '<div class="x">×</div>';
+      d.querySelector('.x').addEventListener('click', function () {
+        if (m.url && m.url.indexOf('blob:') === 0) URL.revokeObjectURL(m.url);
+        customMedia.splice(i, 1);
+        renderCustomAssets();
+      });
+      box.appendChild(d);
+    });
+  }
+
+  async function saveCustom() {
+    var name = $('custom-name').value.trim();
+    if (!name) { alert('请先填训练名称'); return; }
+    var desc = $('custom-desc').value.trim();
+    var btn = $('custom-save');
+    btn.disabled = true; btn.textContent = '保存中…';
+
+    // 1. 新建项目先插一条，拿到 id（编辑则沿用原 id）
+    var projId = customDraftId;
+    if (!projId) {
+      var ins = await sb.from('custom_projects').insert({ child_id: state.childId, title: name, content: desc, media: [] }).select();
+      if (ins.error) { alert('保存失败：' + ins.error.message); btn.disabled = false; btn.textContent = '保存并布置'; return; }
+      projId = ins.data[0].id;
+    }
+
+    // 2. 上传新素材（图片压缩；视频原样上传保证教程清晰度）
+    var finalMedia = [];
+    for (var i = 0; i < customMedia.length; i++) {
+      var m = customMedia[i];
+      if (m.path) { finalMedia.push({ path: m.path, type: m.type }); continue; }
+      var f = m.file;
+      var ext = (f.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (!ext || ext.length > 5) ext = (m.type === 'video' ? 'mp4' : 'jpg');
+      if (m.type === 'image') { f = await compressImage(f, 1280, 0.7); ext = 'jpg'; }
+      var path = state.childId + '/custom/' + projId + '/' + Date.now() + '_' + i + '.' + ext;
+      var up = await sb.storage.from('media').upload(path, f);
+      if (up.error) { alert('素材上传失败：' + up.error.message); btn.disabled = false; btn.textContent = '保存并布置'; return; }
+      finalMedia.push({ path: path, type: m.type });
+    }
+
+    // 3. 更新标题/内容/素材
+    var upd = await sb.from('custom_projects').update({ title: name, content: desc, media: finalMedia }).eq('id', projId);
+    if (upd.error) { alert('保存失败：' + upd.error.message); btn.disabled = false; btn.textContent = '保存并布置'; return; }
+    alert('已保存，家长能看到啦！');
+    openChild(state.childId);
+  }
+
+  // 家长：首页列出布置的训练
+  async function renderCustomHome(children) {
+    var box = $('custom-home-list');
+    if (!box) return;
+    var res = await sb.from('custom_projects').select('*');
+    if (res.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(res.error.message) + '</div>'; return; }
+    if (!res.data.length) { box.innerHTML = '<div class="empty">视训师还没有布置训练</div>'; return; }
+    var nameOf = {};
+    children.forEach(function (k) { nameOf[k.id] = k.name; });
+    res.data.sort(function (a, b) { return new Date(b.created_at) - new Date(a.created_at); }).forEach(function (p) {
+      box.innerHTML +=
+        '<div class="list-item" style="cursor:pointer;" onclick="viewCustomDetail(\'' + p.id + '\')">' +
+          '<span class="icon">📌</span>' +
+          '<div><div class="t">' + esc(p.title || '未命名') + '</div>' +
+          '<div class="s">' + esc(nameOf[p.child_id] || '孩子') + ' · 来自视训师</div></div>' +
+          '<span class="chev">›</span>' +
+        '</div>';
+    });
+  }
+
+  // 家长：训练详情 + 拍照回传进度
+  async function viewCustomDetail(id) {
+    var r = await sb.from('custom_projects').select('*').eq('id', id).single();
+    if (r.error || !r.data) { alert('读不到这个训练'); return; }
+    var p = r.data;
+    state.customId = id;
+    var c = $('content');
+    c.innerHTML = '<h2 class="page-title">' + esc(p.title || '自定义训练') + '</h2>' +
+      '<p class="page-sub">来自视训师的布置</p>' +
+      '<div class="card"><h2>📝 教程</h2><div style="white-space:pre-wrap; font-size:14px;">' + (esc(p.content || '').replace(/\n/g, '<br>') || '（视训师没有写教程说明）') + '</div></div>' +
+      '<div class="card"><h2>📎 训练素材</h2><div id="custom-detail-media"></div></div>' +
+      '<div class="card"><h2>📷 我的回传</h2><div class="custom-assets" id="custom-progress"></div>' +
+      '<button class="btn btn-primary btn-small" id="custom-progress-btn" style="margin-top:12px;">📷 拍照回传进度</button></div>' +
+      '<button class="btn btn-ghost" onclick="home()">返回</button>' +
+      '<input type="file" id="custom-progress-input" accept="image/*" capture="environment" style="position:absolute; left:-9999px; width:1px; height:1px;">';
+
+    // 素材
+    var mbox = $('custom-detail-media');
+    var mhtml = '';
+    var media = p.media || [];
+    for (var i = 0; i < media.length; i++) {
+      var m = media[i];
+      var path = m.path || m;
+      var type = m.type || (/\.(mp4|mov|webm|m4v)$/i.test(path) ? 'video' : 'image');
+      var su = await sb.storage.from('media').createSignedUrl(path, 3600);
+      if (su.data && su.data.signedUrl) {
+        var u = esc(su.data.signedUrl);
+        mhtml += (type === 'video'
+          ? '<video src="' + u + '" controls playsinline style="display:block;width:100%;border-radius:12px;margin-bottom:8px;background:#000;"></video>'
+          : '<img src="' + u + '" class="zoomable" onclick="openImgViewer(this.src)" style="display:block;width:100%;border-radius:12px;margin-bottom:8px;cursor:pointer;">');
+      }
+    }
+    mbox.innerHTML = mhtml || '<div class="empty" style="padding:8px 0;">视训师没有上传素材</div>';
+
+    await renderCustomProgress(id);
+    $('custom-progress-btn').onclick = function () { $('custom-progress-input').click(); };
+    $('custom-progress-input').onchange = function () { submitCustomProgress($('custom-progress-input').files[0]); $('custom-progress-input').value = ''; };
+  }
+
+  async function renderCustomProgress(projId) {
+    var box = $('custom-progress');
+    if (!box) return;
+    var r = await sb.from('records').select('*').eq('child_id', state.childId).eq('type', 'custom').order('created_at', { ascending: false });
+    if (r.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(r.error.message) + '</div>'; return; }
+    var mine = r.data.filter(function (x) { var d = x.data || {}; return d.custom_id === projId; });
+    if (!mine.length) { box.innerHTML = '<div style="font-size:13px; color:var(--muted); padding:6px 0;">还没有回传进度，点下方按钮拍照。</div>'; return; }
+    box.innerHTML = '';
+    for (var i = 0; i < mine.length; i++) {
+      var media = mine[i].media || [];
+      for (var j = 0; j < media.length; j++) {
+        var su = await sb.storage.from('media').createSignedUrl(media[j], 3600);
+        if (su.data && su.data.signedUrl) {
+          var d = document.createElement('div');
+          d.className = 'asset';
+          d.style.width = '90px'; d.style.height = '90px';
+          d.innerHTML = '<img src="' + esc(su.data.signedUrl) + '" onclick="openImgViewer(this.src)">';
+          box.appendChild(d);
+        }
+      }
+    }
+  }
+
+  async function submitCustomProgress(file) {
+    if (!file || !state.customId) return;
+    var projId = state.customId;
+    var cname = '';
+    var pr = await sb.from('custom_projects').select('title').eq('id', projId).single();
+    if (pr.data) cname = pr.data.title;
+    file = await compressImage(file, 1280, 0.7);
+    var path = state.childId + '/progress/' + Date.now() + '.jpg';
+    var up = await sb.storage.from('media').upload(path, file, { contentType: 'image/jpeg' });
+    if (up.error) { alert('上传失败：' + up.error.message); return; }
+    var ins = await sb.from('records').insert({ child_id: state.childId, type: 'custom', data: { custom_id: projId, custom_title: cname }, media: [path] });
+    if (ins.error) { alert('提交失败：' + ins.error.message); return; }
+    alert('回传成功，视训师能看到啦！');
+    await renderCustomProgress(projId);
+  }
+
   // ---------- 家长端 ----------
   function renderParentHome() {
     renderTopbar();
@@ -697,7 +942,9 @@
         '</div>';
     });
     c.innerHTML += '<div style="font-size:15px; font-weight:700; margin:20px 0 4px;">📋 视训师布置的处方</div><div id="rx-home-list"></div>';
+    c.innerHTML += '<div style="font-size:15px; font-weight:700; margin:20px 0 4px;">📌 视训师布置的训练</div><div id="custom-home-list"></div>';
     renderRxHome(cr.data || []);
+    renderCustomHome(cr.data || []);
   }
   function openRecordForm(cid, cname) {
     state.childId = cid;
