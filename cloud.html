@@ -155,6 +155,11 @@
   .custom-assets .asset{ position:relative; width:80px; height:80px; border-radius:10px; overflow:hidden; border:1px solid var(--line); background:#eef4f6; }
   .custom-assets .asset img, .custom-assets .asset video{ width:100%; height:100%; object-fit:cover; display:block; }
   .custom-assets .asset .x{ position:absolute; top:2px; right:2px; width:20px; height:20px; background:rgba(0,0,0,.65); color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; line-height:1; cursor:pointer; }
+
+  /* ============ 线上训练 · 追视小球 ============ */
+  .pursuit-timer{ text-align:center; font-size:22px; font-weight:700; color:var(--primary); margin:10px 0 4px; letter-spacing:1px; }
+  .pursuit-area{ position:relative; height:420px; background:linear-gradient(180deg,#eaf4f7,#f4f9fb); border-radius:16px; overflow:hidden; margin:10px 0; box-shadow:inset 0 2px 10px rgba(20,60,80,.06); }
+  .pursuit-ball{ position:absolute; left:0; top:0; width:44px; height:44px; border-radius:50%; background:radial-gradient(circle at 35% 35%, #ffc46b, #f2a33c 60%, #d98324); box-shadow:0 4px 14px rgba(242,163,60,.55); will-change:transform; }
 </style>
 </head>
 <body>
@@ -452,7 +457,8 @@
       { key: 'eye', label: '眼位照', icon: '👁️', desc: '九宫格眼位图' },
       { key: 'marsden', label: '马斯登球', icon: '🎾', desc: '三段训练视频' },
       { key: 'peripheral', label: '周边训练', icon: '🎯', desc: '命中次数 + 照片/视频' },
-      { key: 'custom', label: '自定义训练', icon: '📌', desc: '教程回传照片' }
+      { key: 'custom', label: '自定义训练', icon: '📌', desc: '教程回传照片' },
+      { key: 'pursuit', label: '追视小球', icon: '👀', desc: '眼动训练打卡' }
     ];
     for (var i = 0; i < types.length; i++) {
       var t = types[i];
@@ -471,7 +477,7 @@
     state.childId = cid;
     var res = await sb.from('children').select('name').eq('id', cid).single();
     var cname = res.data ? res.data.name : '';
-    var typeLabel = type === 'eye' ? '眼位照' : (type === 'marsden' ? '马斯登球' : (type === 'custom' ? '自定义训练' : '周边训练'));
+    var typeLabel = type === 'eye' ? '眼位照' : (type === 'marsden' ? '马斯登球' : (type === 'custom' ? '自定义训练' : (type === 'pursuit' ? '追视小球' : '周边训练')));
     var c = $('content');
     c.innerHTML = '<h2 class="page-title">' + esc(cname) + ' · ' + typeLabel + '</h2>' +
       '<div id="rec-list"></div>' +
@@ -488,6 +494,11 @@
       else if (r.type === 'eye') desc = '眼位照 · ' + eyeStageName(d.stage);
       else if (r.type === 'marsden') desc = '马斯登球 · ' + ((d.slots && d.slots.length) ? (d.slots.length + ' 段视频') : '视频');
       else if (r.type === 'custom') desc = '自定义训练 · ' + (d.custom_title || '回传');
+      else if (r.type === 'pursuit') {
+        var tL = { h: '左右移动', v: '上下移动', cw: '顺时针', ccw: '逆时针' }[d.trajectory] || '追视';
+        var sL = { slow: '慢速', mid: '中速', fast: '快速' }[d.speed] || '';
+        desc = '追视小球 · ' + tL + ' · ' + sL + ' · ' + Math.round((d.duration || 0) / 60) + ' 分钟';
+      }
       else desc = r.type;
       var html = '<div class="list-item"><div><div class="t">' + esc(desc) + '</div>' +
         '<div class="s">' + fmtTime(r.created_at) + '</div>';
@@ -909,6 +920,121 @@
     await renderCustomProgress(projId);
   }
 
+  // ---------- 线上训练 · 追视小球 ----------
+  var pursuit = { cid: null, cname: '', dur: 180, speed: 'mid', traj: 'h', raf: null, elapsed: 0, running: false, startedAt: 0 };
+
+  function openPursuitConfig(cid, cname) {
+    state.childId = cid;
+    pursuit.cid = cid; pursuit.cname = cname;
+    pursuit.dur = 180; pursuit.speed = 'mid'; pursuit.traj = 'h';
+    var c = $('content');
+    c.innerHTML =
+      '<h2 class="page-title">🎾 追视小球</h2>' +
+      '<p class="page-sub">孩子：' + esc(cname) + ' · 眼睛跟着小球，头不要动</p>' +
+      '<div class="card"><h2>⏱ 训练时长</h2><div class="stage-tabs" id="p-dur">' +
+        '<button class="stage-tab" data-v="60">1 分钟</button>' +
+        '<button class="stage-tab active" data-v="180">3 分钟</button>' +
+        '<button class="stage-tab" data-v="300">5 分钟</button></div></div>' +
+      '<div class="card"><h2>⚡ 球速</h2><div class="stage-tabs" id="p-speed">' +
+        '<button class="stage-tab" data-v="slow">慢</button>' +
+        '<button class="stage-tab active" data-v="mid">中</button>' +
+        '<button class="stage-tab" data-v="fast">快</button></div></div>' +
+      '<div class="card"><h2>🔁 轨迹</h2><div class="stage-tabs" id="p-traj">' +
+        '<button class="stage-tab active" data-v="h">左右</button>' +
+        '<button class="stage-tab" data-v="v">上下</button>' +
+        '<button class="stage-tab" data-v="cw">顺时针</button>' +
+        '<button class="stage-tab" data-v="ccw">逆时针</button></div></div>' +
+      '<button class="btn btn-primary" id="p-start">开始训练</button>' +
+      '<button class="btn btn-ghost" onclick="home()">返回</button>';
+
+    function bindGroup(id, key) {
+      var btns = $(id).querySelectorAll('.stage-tab');
+      for (var i = 0; i < btns.length; i++) {
+        btns[i].onclick = function () {
+          for (var j = 0; j < btns.length; j++) btns[j].classList.toggle('active', btns[j] === this);
+          var v = this.getAttribute('data-v');
+          pursuit[key] = (key === 'dur') ? parseInt(v, 10) : v;
+        };
+      }
+    }
+    bindGroup('p-dur', 'dur');
+    bindGroup('p-speed', 'speed');
+    bindGroup('p-traj', 'traj');
+    $('p-start').onclick = startPursuit;
+  }
+
+  function startPursuit() {
+    var c = $('content');
+    c.innerHTML =
+      '<h2 class="page-title">🎾 追视小球</h2>' +
+      '<div class="pursuit-timer" id="p-timer">--:--</div>' +
+      '<div class="pursuit-area" id="p-area"><div class="pursuit-ball" id="p-ball"></div></div>' +
+      '<div class="small-note">眼睛跟着小球动，头不要动</div>' +
+      '<button class="btn btn-ghost" id="p-stop">结束训练</button>';
+    $('p-stop').onclick = endPursuit;
+    pursuit.elapsed = 0;
+    pursuit.startedAt = performance.now();
+    pursuit.running = true;
+    pursuit.raf = requestAnimationFrame(pursuitTick);
+  }
+
+  function pursuitTick(now) {
+    if (!pursuit.running) return;
+    var area = $('p-area'), ball = $('p-ball'), timer = $('p-timer');
+    if (!area || !ball || !timer) { pursuit.running = false; return; }
+    pursuit.elapsed = (now - pursuit.startedAt) / 1000;
+    if (pursuit.elapsed >= pursuit.dur) { endPursuit(); return; }
+    var W = area.clientWidth, H = area.clientHeight;
+    var cx = W / 2, cy = H / 2, R = 22;
+    var cycle = pursuit.speed === 'slow' ? 4 : (pursuit.speed === 'fast' ? 1.5 : 2.5);
+    var w = 2 * Math.PI / cycle;
+    var ph = w * pursuit.elapsed;
+    var x, y;
+    if (pursuit.traj === 'v') { x = cx; y = cy + (H / 2 - R - 16) * Math.sin(ph); }
+    else if (pursuit.traj === 'cw') { var r1 = Math.min(W, H) / 2 - R - 16; x = cx + r1 * Math.cos(ph); y = cy + r1 * Math.sin(ph); }
+    else if (pursuit.traj === 'ccw') { var r2 = Math.min(W, H) / 2 - R - 16; x = cx + r2 * Math.cos(ph); y = cy - r2 * Math.sin(ph); }
+    else { x = cx + (W / 2 - R - 16) * Math.sin(ph); y = cy; }
+    ball.style.transform = 'translate(' + (x - R) + 'px,' + (y - R) + 'px)';
+    var remain = Math.max(0, pursuit.dur - pursuit.elapsed);
+    var mm = Math.floor(remain / 60), ss = Math.floor(remain % 60);
+    timer.textContent = '剩余 ' + (mm < 10 ? '0' + mm : mm) + ':' + (ss < 10 ? '0' + ss : ss);
+    pursuit.raf = requestAnimationFrame(pursuitTick);
+  }
+
+  function endPursuit() {
+    if (!pursuit.running) return;
+    pursuit.running = false;
+    if (pursuit.raf) { cancelAnimationFrame(pursuit.raf); pursuit.raf = null; }
+    var actual = Math.round(pursuit.elapsed);
+    var trajL = { h: '左右移动', v: '上下移动', cw: '顺时针', ccw: '逆时针' }[pursuit.traj] || '';
+    var speedL = { slow: '慢', mid: '中', fast: '快' }[pursuit.speed] || '';
+    var c = $('content');
+    c.innerHTML =
+      '<h2 class="page-title">训练完成 ✅</h2>' +
+      '<div class="card" style="line-height:2.1;">' +
+        '<div>轨迹：' + trajL + '</div>' +
+        '<div>球速：' + speedL + '</div>' +
+        '<div>设定时长：' + Math.round(pursuit.dur / 60) + ' 分钟</div>' +
+        '<div>实际完成：' + Math.floor(actual / 60) + ' 分 ' + (actual % 60) + ' 秒</div>' +
+      '</div>' +
+      '<button class="btn btn-primary" id="p-checkin">打卡上传给视训师</button>' +
+      '<button class="btn btn-ghost" onclick="home()">返回</button>';
+    $('p-checkin').onclick = checkInPursuit;
+  }
+
+  async function checkInPursuit() {
+    var btn = $('p-checkin');
+    btn.disabled = true; btn.textContent = '上传中…';
+    var res = await sb.from('records').insert({
+      child_id: pursuit.cid,
+      type: 'pursuit',
+      data: { duration: pursuit.dur, speed: pursuit.speed, trajectory: pursuit.traj, actual: Math.round(pursuit.elapsed) }
+    });
+    if (res.error) { alert('打卡失败：' + res.error.message); btn.disabled = false; btn.textContent = '打卡上传给视训师'; return; }
+    alert('打卡成功！视训师能看到啦');
+    home();
+  }
+
   // ---------- 家长端 ----------
   function renderParentHome() {
     renderTopbar();
@@ -949,10 +1075,11 @@
             '<div><div class="t">' + esc(k.name) + '</div>' +
             '<div class="s">' + (k.age ? (k.age + ' 岁') : '') + '</div></div>' +
           '</div>' +
-          '<div style="display:flex; gap:6px; margin-top:12px; flex:none;">' +
-            '<button class="btn btn-primary btn-small" style="flex:1;" onclick="openEyeForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">眼位照</button>' +
-            '<button class="btn btn-primary btn-small" style="flex:1;" onclick="openMarsdenForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">马斯登球</button>' +
-            '<button class="btn btn-ghost btn-small" style="flex:1;" onclick="openRecordForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">周边训练</button>' +
+          '<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:12px; flex:none;">' +
+            '<button class="btn btn-primary btn-small" onclick="openEyeForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">眼位照</button>' +
+            '<button class="btn btn-primary btn-small" onclick="openMarsdenForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">马斯登球</button>' +
+            '<button class="btn btn-ghost btn-small" onclick="openRecordForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">周边训练</button>' +
+            '<button class="btn btn-primary btn-small" onclick="openPursuitConfig(\'' + k.id + '\',\'' + esc(k.name) + '\')">🎾 追视小球</button>' +
           '</div>' +
         '</div>';
     });
