@@ -164,6 +164,15 @@
   .speed-slider input[type=range]{ flex:1; accent-color:var(--primary); }
   .speed-label{ font-size:13px; color:var(--muted); flex-shrink:0; }
   .speed-val{ text-align:center; font-size:13px; color:var(--primary); font-weight:600; margin-top:8px; }
+  /* 训练时界面下方的控制台 */
+  .p-ctrl{ padding:12px 14px; }
+  .p-ctrl-row{ display:flex; align-items:center; gap:8px; margin:9px 0; }
+  .p-ctrl-label{ font-size:14px; font-weight:600; flex-shrink:0; width:56px; }
+  .p-ctrl-row input[type=range]{ flex:1; min-width:0; accent-color:var(--primary); }
+  .p-ctrl-row .stage-tabs{ flex:1; margin:0; }
+  .p-ctrl-row .stage-tab{ padding:8px 0; font-size:13px; }
+  .p-ctrl-val{ font-size:13px; color:var(--primary); font-weight:700; flex-shrink:0; min-width:46px; text-align:right; }
+  .game-view.pfs .p-ctrl{ position:fixed; left:50%; transform:translateX(-50%); bottom:74px; z-index:30; width:calc(100% - 32px); max-width:680px; box-shadow:0 8px 30px rgba(0,0,0,.55); }
 
   /* ============ 训练游戏全屏层（电脑/大屏） ============ */
   .game-view{ position:fixed; inset:0; background:var(--bg); z-index:9990; display:none; flex-direction:column; }
@@ -1001,29 +1010,31 @@
     pursuit.cid = cid; pursuit.cname = cname;
     pursuit.dur = 180; pursuit.speed = 5; pursuit.traj = 'h'; pursuit.amp = 100;
     var g = $('game-body');
-    g.innerHTML = '<div class="game-inner">' +
-      '<h2 class="page-title">🎾 追视小球</h2>' +
-      '<p class="page-sub">孩子：' + esc(cname) + ' · 眼睛跟着小球，头不要动</p>' +
-      '<div class="card"><h2>⏱ 训练时长</h2><div class="stage-tabs" id="p-dur">' +
-        '<button class="stage-tab" data-v="60">1 分钟</button>' +
-        '<button class="stage-tab active" data-v="180">3 分钟</button>' +
-        '<button class="stage-tab" data-v="300">5 分钟</button></div></div>' +
-      '<div class="card"><h2>⚡ 球速</h2>' +
-        '<div class="speed-slider"><span class="speed-label">慢</span>' +
-        '<input type="range" id="p-speed" min="1" max="10" step="0.1" value="5">' +
-        '<span class="speed-label">快</span></div>' +
-        '<div class="speed-val" id="p-speed-val">当前速度：5 档</div></div>' +
-      '<div class="card"><h2>🔁 轨迹</h2><div class="stage-tabs" id="p-traj">' +
-        '<button class="stage-tab active" data-v="h">左右</button>' +
-        '<button class="stage-tab" data-v="v">上下</button>' +
-        '<button class="stage-tab" data-v="cw">顺时针</button>' +
-        '<button class="stage-tab" data-v="ccw">逆时针</button></div></div>' +
-      '<div class="card"><h2>📏 摆幅</h2>' +
-        '<div class="speed-slider"><span class="speed-label">小</span>' +
-        '<input type="range" id="p-amp" min="10" max="100" step="1" value="100">' +
-        '<span class="speed-label">大</span></div>' +
-        '<div class="speed-val" id="p-amp-val">当前摆幅：100%</div></div>' +
-      '<button class="btn btn-primary" id="p-start">开始训练</button></div>';
+    g.innerHTML = '<div class="game-wide">' +
+      '<div class="pursuit-timer" id="p-timer">--:--</div>' +
+      '<div class="pursuit-area" id="p-area"><div class="pursuit-ball" id="p-ball"></div></div>' +
+      '<div class="small-note">眼睛跟着小球动，头不要动</div>' +
+      '<div class="card p-ctrl">' +
+        '<div class="p-ctrl-row"><span class="p-ctrl-label">⚡球速</span><span class="speed-label">慢</span>' +
+          '<input type="range" id="p-speed" min="1" max="10" step="0.1" value="5">' +
+          '<span class="speed-label">快</span><b class="p-ctrl-val" id="p-speed-val">5 档</b></div>' +
+        '<div class="p-ctrl-row"><span class="p-ctrl-label">🔁轨迹</span><div class="stage-tabs" id="p-traj">' +
+          '<button class="stage-tab active" data-v="h">左右</button>' +
+          '<button class="stage-tab" data-v="v">上下</button>' +
+          '<button class="stage-tab" data-v="cw">顺时针</button>' +
+          '<button class="stage-tab" data-v="ccw">逆时针</button></div></div>' +
+        '<div class="p-ctrl-row"><span class="p-ctrl-label">📏摆幅</span><span class="speed-label">小</span>' +
+          '<input type="range" id="p-amp" min="10" max="100" step="1" value="100">' +
+          '<span class="speed-label">大</span><b class="p-ctrl-val" id="p-amp-val">100%</b></div>' +
+        '<div class="p-ctrl-row"><span class="p-ctrl-label">⏱时长</span><div class="stage-tabs" id="p-dur">' +
+          '<button class="stage-tab" data-v="60">1分</button>' +
+          '<button class="stage-tab active" data-v="180">3分</button>' +
+          '<button class="stage-tab" data-v="300">5分</button></div></div>' +
+      '</div>' +
+      '<div class="p-fs-ctrls">' +
+        '<button class="btn btn-ghost" id="p-fs">🔲 放大全屏</button>' +
+        '<button class="btn btn-ghost" id="p-stop">结束训练</button>' +
+      '</div></div>';
 
     function bindGroup(id, key) {
       var btns = $(id).querySelectorAll('.stage-tab');
@@ -1039,28 +1050,16 @@
     bindGroup('p-traj', 'traj');
     $('p-speed').oninput = function () {
       pursuit.speed = parseFloat(this.value);
-      $('p-speed-val').textContent = '当前速度：' + fmtSpeed(pursuit.speed) + ' 档';
+      $('p-speed-val').textContent = fmtSpeed(pursuit.speed) + ' 档';
     };
     $('p-amp').oninput = function () {
       pursuit.amp = parseInt(this.value, 10);
-      $('p-amp-val').textContent = '当前摆幅：' + pursuit.amp + '%';
+      $('p-amp-val').textContent = pursuit.amp + '%';
     };
-    $('p-start').onclick = startPursuit;
-    openGame();
-  }
-
-  function startPursuit() {
-    var g = $('game-body');
-    g.innerHTML = '<div class="game-wide">' +
-      '<div class="pursuit-timer" id="p-timer">--:--</div>' +
-      '<div class="pursuit-area" id="p-area"><div class="pursuit-ball" id="p-ball"></div></div>' +
-      '<div class="small-note">眼睛跟着小球动，头不要动</div>' +
-      '<div class="p-fs-ctrls">' +
-        '<button class="btn btn-ghost" id="p-fs">🔲 放大全屏</button>' +
-        '<button class="btn btn-ghost" id="p-stop">结束训练</button>' +
-      '</div></div>';
     $('p-stop').onclick = endPursuit;
     $('p-fs').onclick = togglePursuitFs;
+
+    openGame();
     pursuit.elapsed = 0;
     pursuit.startedAt = performance.now();
     pursuit.running = true;
