@@ -160,6 +160,10 @@
   .pursuit-timer{ text-align:center; font-size:22px; font-weight:700; color:var(--primary); margin:10px 0 4px; letter-spacing:1px; }
   .pursuit-area{ position:relative; height:min(72vh,720px); min-height:420px; background:linear-gradient(180deg,#eaf4f7,#f4f9fb); border-radius:16px; overflow:hidden; margin:10px 0; box-shadow:inset 0 2px 10px rgba(20,60,80,.06); }
   .pursuit-ball{ position:absolute; left:0; top:0; width:44px; height:44px; border-radius:50%; background:radial-gradient(circle at 35% 35%, #ffc46b, #f2a33c 60%, #d98324); box-shadow:0 4px 14px rgba(242,163,60,.55); will-change:transform; }
+  .speed-slider{ display:flex; align-items:center; gap:10px; }
+  .speed-slider input[type=range]{ flex:1; accent-color:var(--primary); }
+  .speed-label{ font-size:13px; color:var(--muted); flex-shrink:0; }
+  .speed-val{ text-align:center; font-size:13px; color:var(--primary); font-weight:600; margin-top:8px; }
 
   /* ============ 训练游戏全屏层（电脑/大屏） ============ */
   .game-view{ position:fixed; inset:0; background:var(--bg); z-index:9990; display:none; flex-direction:column; }
@@ -553,7 +557,7 @@
       else if (r.type === 'custom') desc = '自定义训练 · ' + (d.custom_title || '回传');
       else if (r.type === 'pursuit') {
         var tL = { h: '左右移动', v: '上下移动', cw: '顺时针', ccw: '逆时针' }[d.trajectory] || '追视';
-        var sL = { slow: '慢速', mid: '中速', fast: '快速' }[d.speed] || '';
+        var sL = (typeof d.speed === 'number') ? (fmtSpeed(d.speed) + ' 档') : ({ slow: '慢速', mid: '中速', fast: '快速' }[d.speed] || '');
         desc = '追视小球 · ' + tL + ' · ' + sL + ' · ' + Math.round((d.duration || 0) / 60) + ' 分钟';
       }
       else desc = r.type;
@@ -978,9 +982,10 @@
   }
 
   // ---------- 线上训练 · 追视小球（电脑/大屏专用） ----------
-  var pursuit = { cid: null, cname: '', dur: 180, speed: 'mid', traj: 'h', raf: null, elapsed: 0, running: false, startedAt: 0 };
+  var pursuit = { cid: null, cname: '', dur: 180, speed: 5, traj: 'h', raf: null, elapsed: 0, running: false, startedAt: 0 };
 
   function isBigScreen() { return window.innerWidth >= 900; }
+  function fmtSpeed(v) { return String(Math.round(v * 10) / 10); }
   function openGame() { $('game-view').classList.add('open'); document.body.style.overflow = 'hidden'; }
   function closeGame() {
     $('game-view').classList.remove('open');
@@ -993,7 +998,7 @@
   function openPursuitConfig(cid, cname) {
     state.childId = cid;
     pursuit.cid = cid; pursuit.cname = cname;
-    pursuit.dur = 180; pursuit.speed = 'mid'; pursuit.traj = 'h';
+    pursuit.dur = 180; pursuit.speed = 5; pursuit.traj = 'h';
     var g = $('game-body');
     g.innerHTML = '<div class="game-inner">' +
       '<h2 class="page-title">🎾 追视小球</h2>' +
@@ -1002,10 +1007,11 @@
         '<button class="stage-tab" data-v="60">1 分钟</button>' +
         '<button class="stage-tab active" data-v="180">3 分钟</button>' +
         '<button class="stage-tab" data-v="300">5 分钟</button></div></div>' +
-      '<div class="card"><h2>⚡ 球速</h2><div class="stage-tabs" id="p-speed">' +
-        '<button class="stage-tab" data-v="slow">慢</button>' +
-        '<button class="stage-tab active" data-v="mid">中</button>' +
-        '<button class="stage-tab" data-v="fast">快</button></div></div>' +
+      '<div class="card"><h2>⚡ 球速</h2>' +
+        '<div class="speed-slider"><span class="speed-label">慢</span>' +
+        '<input type="range" id="p-speed" min="1" max="10" step="0.1" value="5">' +
+        '<span class="speed-label">快</span></div>' +
+        '<div class="speed-val" id="p-speed-val">当前速度：5 档</div></div>' +
       '<div class="card"><h2>🔁 轨迹</h2><div class="stage-tabs" id="p-traj">' +
         '<button class="stage-tab active" data-v="h">左右</button>' +
         '<button class="stage-tab" data-v="v">上下</button>' +
@@ -1024,8 +1030,11 @@
       }
     }
     bindGroup('p-dur', 'dur');
-    bindGroup('p-speed', 'speed');
     bindGroup('p-traj', 'traj');
+    $('p-speed').oninput = function () {
+      pursuit.speed = parseFloat(this.value);
+      $('p-speed-val').textContent = '当前速度：' + fmtSpeed(pursuit.speed) + ' 档';
+    };
     $('p-start').onclick = startPursuit;
     openGame();
   }
@@ -1062,7 +1071,7 @@
     if (pursuit.elapsed >= pursuit.dur) { endPursuit(); return; }
     var W = area.clientWidth, H = area.clientHeight;
     var cx = W / 2, cy = H / 2, R = (ball.offsetWidth || 44) / 2;
-    var cycle = pursuit.speed === 'slow' ? 4 : (pursuit.speed === 'fast' ? 1.5 : 2.5);
+    var cycle = 5 - 0.4 * pursuit.speed;   // 档位 1(慢≈4.6s) ~ 10(快≈1s)
     var w = 2 * Math.PI / cycle;
     var ph = w * pursuit.elapsed;
     var x, y;
@@ -1084,7 +1093,7 @@
     $('game-view').classList.remove('pfs');
     var actual = Math.round(pursuit.elapsed);
     var trajL = { h: '左右移动', v: '上下移动', cw: '顺时针', ccw: '逆时针' }[pursuit.traj] || '';
-    var speedL = { slow: '慢', mid: '中', fast: '快' }[pursuit.speed] || '';
+    var speedL = fmtSpeed(pursuit.speed) + ' 档';
     var g = $('game-body');
     g.innerHTML = '<div class="game-inner">' +
       '<h2 class="page-title">训练完成 ✅</h2>' +
