@@ -186,6 +186,15 @@
       <input id="email" type="email" placeholder="you@example.com" autocomplete="username">
       <label>密码（至少 6 位）</label>
       <input id="password" type="password" placeholder="••••••" autocomplete="current-password">
+      <label>注册身份（仅注册时生效）</label>
+      <div class="stage-tabs">
+        <button type="button" class="stage-tab active" id="role-parent-btn">👨‍👩‍👧 家长</button>
+        <button type="button" class="stage-tab" id="role-therapist-btn">👁️ 视训师</button>
+      </div>
+      <div id="code-field" style="display:none;">
+        <label>视训师授权码</label>
+        <input id="therapist-code" type="password" placeholder="向管理员索取" autocomplete="off">
+      </div>
       <button class="btn btn-primary" id="login-btn">登录</button>
       <button class="btn btn-ghost" id="signup-btn">注册新账号</button>
       <div class="msg" id="msg"></div>
@@ -340,18 +349,36 @@
   }
 
   // ---------- 登录 ----------
-  function showLogin() { $('login-view').style.display = 'block'; $('main-view').style.display = 'none'; }
+  function showLogin() { $('login-view').style.display = 'block'; $('main-view').style.display = 'none'; setSignupRole('parent'); }
   function showMain() { $('login-view').style.display = 'none'; $('main-view').style.display = 'block'; }
   function showMsg(text, ok) {
     var m = $('msg'); m.textContent = text; m.className = 'msg ' + (ok ? 'ok' : 'err');
   }
 
+  var signupRole = 'parent';
+  function setSignupRole(r) {
+    signupRole = r;
+    $('role-parent-btn').classList.toggle('active', r === 'parent');
+    $('role-therapist-btn').classList.toggle('active', r === 'therapist');
+    $('code-field').style.display = r === 'therapist' ? 'block' : 'none';
+  }
   async function signUp() {
     var email = $('email').value.trim(), password = $('password').value;
     if (!email || !password) { showMsg('请填写邮箱和密码'); return; }
+    var code = $('therapist-code').value.trim();
+    if (signupRole === 'therapist' && !code) { showMsg('视训师需要填写授权码'); return; }
     showMsg('正在注册……');
     var res = await sb.auth.signUp({ email: email, password: password });
     if (res.error) { showMsg('注册失败：' + res.error.message); return; }
+    // 视训师：注册后立刻用授权码升级身份
+    if (signupRole === 'therapist') {
+      if (!res.data.session) { showMsg('注册成功，但未自动登录。请点「登录」后，在首页输入授权码升级', true); return; }
+      var r = await sb.rpc('register_therapist', { p_code: code });
+      if (r.error) { showMsg('升级失败：' + r.error.message, false); await sb.auth.signOut(); showLogin(); return; }
+      if (r.data === false) { showMsg('授权码错误，账号已注册为「家长」。请用此邮箱登录，在首页点「我是视训师」重试', false); await sb.auth.signOut(); showLogin(); return; }
+      showMsg('注册成功，已成为视训师', true); afterLogin(res.data.user);
+      return;
+    }
     if (res.data.session) { showMsg('注册成功，已自动登录', true); afterLogin(res.data.user); }
     else { showMsg('注册成功！请点「登录」进入', true); }
   }
@@ -1068,10 +1095,26 @@
   function renderJoinFamily() {
     var c = $('content');
     c.innerHTML =
+      '<div class="card" style="background:#fff8ef; border:1px solid #f2d5a8;">' +
+        '<h2>👁️ 我是视训师</h2>' +
+        '<p class="sub">不是家长？输入视训师授权码，升级为视训师</p>' +
+        '<label>授权码</label><input id="upgrade-code" type="password" placeholder="向管理员索取">' +
+        '<button class="btn btn-primary" onclick="upgradeTherapist()">升级为视训师</button>' +
+      '</div>' +
       '<div class="card"><h1>加入家庭</h1>' +
       '<p class="sub">向你的视训师索取 6 位「邀请码」，输入后加入</p>' +
       '<label>邀请码</label><input id="invite-code" placeholder="6 位数字" maxlength="6">' +
       '<button class="btn btn-primary" onclick="joinFamily()">加入家庭</button></div>';
+  }
+  async function upgradeTherapist() {
+    var code = $('upgrade-code').value.trim();
+    if (!code) { alert('请输入授权码'); return; }
+    var r = await sb.rpc('register_therapist', { p_code: code });
+    if (r.error) { alert('升级失败：' + r.error.message); return; }
+    if (r.data === false) { alert('授权码错误，请核对后重试'); return; }
+    alert('升级成功，已成为视训师！');
+    await loadProfile();
+    home();
   }
   async function joinFamily() {
     var code = $('invite-code').value.trim();
@@ -1794,6 +1837,8 @@
   // ---------- 绑定事件 ----------
   $('login-btn').onclick = signIn;
   $('signup-btn').onclick = signUp;
+  $('role-parent-btn').onclick = function () { setSignupRole('parent'); };
+  $('role-therapist-btn').onclick = function () { setSignupRole('therapist'); };
   $('logout-btn').onclick = signOut;
 
   // 图片查看器：绑定手势与关闭
