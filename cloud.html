@@ -164,15 +164,28 @@
   .speed-slider input[type=range]{ flex:1; accent-color:var(--primary); }
   .speed-label{ font-size:13px; color:var(--muted); flex-shrink:0; }
   .speed-val{ text-align:center; font-size:13px; color:var(--primary); font-weight:600; margin-top:8px; }
-  /* 训练时界面下方的控制台 */
-  .p-ctrl{ padding:12px 14px; }
-  .p-ctrl-row{ display:flex; align-items:center; gap:8px; margin:9px 0; }
-  .p-ctrl-label{ font-size:14px; font-weight:600; flex-shrink:0; width:56px; }
-  .p-ctrl-row input[type=range]{ flex:1; min-width:0; accent-color:var(--primary); }
-  .p-ctrl-row .stage-tabs{ flex:1; margin:0; }
-  .p-ctrl-row .stage-tab{ padding:8px 0; font-size:13px; }
-  .p-ctrl-val{ font-size:13px; color:var(--primary); font-weight:700; flex-shrink:0; min-width:46px; text-align:right; }
-  .game-view.pfs .p-ctrl{ position:fixed; left:50%; transform:translateX(-50%); bottom:74px; z-index:30; width:calc(100% - 32px); max-width:680px; box-shadow:0 8px 30px rgba(0,0,0,.55); }
+  /* 训练控制台：浮动、可拖、可隐藏，停靠上下=横排 / 左右=竖排 */
+  .p-ctrl{ position:fixed; z-index:60; background:var(--card); border-radius:16px; border:1px solid var(--line); box-shadow:0 10px 34px rgba(20,60,80,.24); overflow:hidden; max-width:96vw; }
+  .p-ctrl.dock-v{ width:300px; }
+  .p-ctrl.dragging{ transition:none; box-shadow:0 20px 50px rgba(20,60,80,.4); }
+  .p-ctrl-head{ display:flex; align-items:center; gap:8px; padding:8px 12px; background:linear-gradient(135deg,var(--primary),var(--primary-dark)); color:#fff; cursor:grab; user-select:none; touch-action:none; }
+  .p-ctrl-head:active{ cursor:grabbing; }
+  .p-ctrl-title{ font-size:13px; font-weight:700; flex:1; }
+  .p-ctrl-hide{ border:none; background:rgba(255,255,255,.22); color:#fff; width:26px; height:26px; border-radius:8px; cursor:pointer; font-size:15px; line-height:1; flex-shrink:0; }
+  .p-ctrl-body{ padding:12px; display:flex; gap:12px; }
+  .p-ctrl.dock-h .p-ctrl-body{ flex-direction:row; flex-wrap:wrap; }
+  .p-ctrl.dock-v .p-ctrl-body{ flex-direction:column; }
+  .p-ctrl-item{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+  .p-ctrl.dock-h .p-ctrl-item{ flex:1 1 190px; }
+  .p-ctrl-item-label{ font-size:12px; font-weight:600; color:var(--muted); }
+  .p-ctrl-item .stage-tabs{ margin:0; }
+  .p-ctrl-item .stage-tab{ padding:7px 0; font-size:12px; }
+  .p-ctrl-val{ font-size:12px; color:var(--primary); font-weight:700; text-align:center; }
+  /* 收起后的恢复按钮 */
+  .p-ctrl-toggle{ position:fixed; left:16px; top:16px; z-index:60; border:none; background:var(--primary); color:#fff; padding:9px 16px; border-radius:999px; font-size:13px; font-weight:600; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.22); }
+  /* 结束/全屏 动作按钮（右下角常驻） */
+  .p-act{ position:fixed; right:16px; bottom:16px; z-index:60; display:flex; flex-direction:column; gap:8px; }
+  .p-act .btn{ margin-top:0; width:auto; padding:10px 18px; font-size:14px; border-radius:999px; background:#fff; border:1px solid var(--line); box-shadow:0 4px 14px rgba(0,0,0,.18); }
 
   /* ============ 训练游戏全屏层（电脑/大屏） ============ */
   .game-view{ position:fixed; inset:0; background:var(--bg); z-index:9990; display:none; flex-direction:column; }
@@ -183,8 +196,6 @@
   .game-inner{ max-width:640px; margin:0 auto; }
   .game-wide{ max-width:1280px; margin:0 auto; }
   /* 追视小球：放大全屏（电视投屏用） */
-  .p-fs-ctrls{ display:flex; gap:10px; margin-top:12px; }
-  .p-fs-ctrls .btn{ margin-top:0; flex:1; }
   .game-view.pfs{ background:#000; }
   .game-view.pfs #game-body{ padding:0; overflow:hidden; }
   .game-view.pfs .game-wide{ max-width:none; }
@@ -194,7 +205,6 @@
   .game-view.pfs .pursuit-ball{ width:60px; height:60px; }
   .game-view.pfs .pursuit-timer{ position:fixed; top:14px; left:50%; transform:translateX(-50%); z-index:30; color:#fff; font-size:24px; text-shadow:0 1px 4px rgba(0,0,0,.6); }
   .game-view.pfs .small-note{ display:none; }
-  .game-view.pfs .p-fs-ctrls{ position:fixed; left:0; right:0; bottom:20px; z-index:30; padding:0 20px; }
 </style>
 </head>
 <body>
@@ -1014,26 +1024,47 @@
       '<div class="pursuit-timer" id="p-timer">--:--</div>' +
       '<div class="pursuit-area" id="p-area"><div class="pursuit-ball" id="p-ball"></div></div>' +
       '<div class="small-note">眼睛跟着小球动，头不要动</div>' +
-      '<div class="card p-ctrl">' +
-        '<div class="p-ctrl-row"><span class="p-ctrl-label">⚡球速</span><span class="speed-label">慢</span>' +
-          '<input type="range" id="p-speed" min="1" max="10" step="0.1" value="5">' +
-          '<span class="speed-label">快</span><b class="p-ctrl-val" id="p-speed-val">5 档</b></div>' +
-        '<div class="p-ctrl-row"><span class="p-ctrl-label">🔁轨迹</span><div class="stage-tabs" id="p-traj">' +
-          '<button class="stage-tab active" data-v="h">左右</button>' +
-          '<button class="stage-tab" data-v="v">上下</button>' +
-          '<button class="stage-tab" data-v="cw">顺时针</button>' +
-          '<button class="stage-tab" data-v="ccw">逆时针</button></div></div>' +
-        '<div class="p-ctrl-row"><span class="p-ctrl-label">📏摆幅</span><span class="speed-label">小</span>' +
-          '<input type="range" id="p-amp" min="10" max="100" step="1" value="100">' +
-          '<span class="speed-label">大</span><b class="p-ctrl-val" id="p-amp-val">100%</b></div>' +
-        '<div class="p-ctrl-row"><span class="p-ctrl-label">⏱时长</span><div class="stage-tabs" id="p-dur">' +
-          '<button class="stage-tab" data-v="60">1分</button>' +
-          '<button class="stage-tab active" data-v="180">3分</button>' +
-          '<button class="stage-tab" data-v="300">5分</button></div></div>' +
+      '<div class="p-ctrl dock-h" id="p-ctrl" style="left:50%; bottom:16px; transform:translateX(-50%);">' +
+        '<div class="p-ctrl-head" id="p-ctrl-head">' +
+          '<span class="p-ctrl-title">🎛️ 控制台</span>' +
+          '<button class="p-ctrl-hide" id="p-ctrl-hide" title="收起">—</button>' +
+        '</div>' +
+        '<div class="p-ctrl-body">' +
+          '<div class="p-ctrl-item">' +
+            '<div class="p-ctrl-item-label">⚡ 球速</div>' +
+            '<div class="speed-slider"><span class="speed-label">慢</span>' +
+            '<input type="range" id="p-speed" min="1" max="10" step="0.1" value="5">' +
+            '<span class="speed-label">快</span></div>' +
+            '<b class="p-ctrl-val" id="p-speed-val">5 档</b>' +
+          '</div>' +
+          '<div class="p-ctrl-item">' +
+            '<div class="p-ctrl-item-label">🔁 轨迹</div>' +
+            '<div class="stage-tabs" id="p-traj">' +
+              '<button class="stage-tab active" data-v="h">左右</button>' +
+              '<button class="stage-tab" data-v="v">上下</button>' +
+              '<button class="stage-tab" data-v="cw">顺时针</button>' +
+              '<button class="stage-tab" data-v="ccw">逆时针</button></div>' +
+          '</div>' +
+          '<div class="p-ctrl-item">' +
+            '<div class="p-ctrl-item-label">📏 摆幅</div>' +
+            '<div class="speed-slider"><span class="speed-label">小</span>' +
+            '<input type="range" id="p-amp" min="10" max="100" step="1" value="100">' +
+            '<span class="speed-label">大</span></div>' +
+            '<b class="p-ctrl-val" id="p-amp-val">100%</b>' +
+          '</div>' +
+          '<div class="p-ctrl-item">' +
+            '<div class="p-ctrl-item-label">⏱ 时长</div>' +
+            '<div class="stage-tabs" id="p-dur">' +
+              '<button class="stage-tab" data-v="60">1分</button>' +
+              '<button class="stage-tab active" data-v="180">3分</button>' +
+              '<button class="stage-tab" data-v="300">5分</button></div>' +
+          '</div>' +
+        '</div>' +
       '</div>' +
-      '<div class="p-fs-ctrls">' +
+      '<button class="p-ctrl-toggle" id="p-ctrl-toggle" style="display:none;">🎛️ 控制台</button>' +
+      '<div class="p-act">' +
         '<button class="btn btn-ghost" id="p-fs">🔲 放大全屏</button>' +
-        '<button class="btn btn-ghost" id="p-stop">结束训练</button>' +
+        '<button class="btn btn-ghost" id="p-stop">⏹ 结束训练</button>' +
       '</div></div>';
 
     function bindGroup(id, key) {
@@ -1058,6 +1089,9 @@
     };
     $('p-stop').onclick = endPursuit;
     $('p-fs').onclick = togglePursuitFs;
+    $('p-ctrl-hide').onclick = hideCtrl;
+    $('p-ctrl-toggle').onclick = showCtrl;
+    initCtrlDrag();
 
     openGame();
     pursuit.elapsed = 0;
@@ -1070,6 +1104,62 @@
     var on = $('game-view').classList.toggle('pfs');
     var btn = $('p-fs');
     if (btn) btn.textContent = on ? '🔳 退出全屏' : '🔲 放大全屏';
+  }
+
+  // ---------- 控制台：拖动、停靠、隐藏 ----------
+  var ctrlDrag = null;
+  function setCtrlDock(orient) {
+    var panel = $('p-ctrl');
+    if (!panel) return;
+    panel.classList.toggle('dock-h', orient === 'h');
+    panel.classList.toggle('dock-v', orient === 'v');
+  }
+  function hideCtrl() { $('p-ctrl').style.display = 'none'; $('p-ctrl-toggle').style.display = 'block'; }
+  function showCtrl() { $('p-ctrl').style.display = 'block'; $('p-ctrl-toggle').style.display = 'none'; }
+  function dockCtrl() {
+    var panel = $('p-ctrl');
+    var r = panel.getBoundingClientRect();
+    var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var d = [
+      { e: 'top', v: cy }, { e: 'bottom', v: vh - cy }, { e: 'left', v: cx }, { e: 'right', v: vw - cx }
+    ].sort(function (a, b) { return a.v - b.v; })[0].e;
+    setCtrlDock((d === 'top' || d === 'bottom') ? 'h' : 'v');
+    panel.style.transition = 'left .25s ease, top .25s ease, transform .25s ease';
+    panel.style.left = 'auto'; panel.style.right = 'auto'; panel.style.top = 'auto'; panel.style.bottom = 'auto'; panel.style.transform = 'none';
+    if (d === 'top') { panel.style.top = '16px'; panel.style.left = '50%'; panel.style.transform = 'translateX(-50%)'; }
+    else if (d === 'bottom') { panel.style.bottom = '16px'; panel.style.left = '50%'; panel.style.transform = 'translateX(-50%)'; }
+    else if (d === 'left') { panel.style.left = '16px'; panel.style.top = '50%'; panel.style.transform = 'translateY(-50%)'; }
+    else { panel.style.right = '16px'; panel.style.top = '50%'; panel.style.transform = 'translateY(-50%)'; }
+    setTimeout(function () { panel.style.transition = 'none'; }, 300);
+  }
+  function initCtrlDrag() {
+    var head = $('p-ctrl-head');
+    head.addEventListener('pointerdown', function (e) {
+      if (e.target.id === 'p-ctrl-hide') return;
+      e.preventDefault();
+      var panel = $('p-ctrl');
+      var r = panel.getBoundingClientRect();
+      ctrlDrag = { offX: e.clientX - r.left, offY: e.clientY - r.top };
+      panel.classList.add('dragging');
+      panel.style.transition = 'none';
+      head.setPointerCapture(e.pointerId);
+    });
+    head.addEventListener('pointermove', function (e) {
+      if (!ctrlDrag) return;
+      var panel = $('p-ctrl');
+      panel.style.left = (e.clientX - ctrlDrag.offX) + 'px';
+      panel.style.top = (e.clientY - ctrlDrag.offY) + 'px';
+      panel.style.right = 'auto'; panel.style.bottom = 'auto'; panel.style.transform = 'none';
+    });
+    function end() {
+      if (!ctrlDrag) return;
+      ctrlDrag = null;
+      $('p-ctrl').classList.remove('dragging');
+      dockCtrl();
+    }
+    head.addEventListener('pointerup', end);
+    head.addEventListener('pointercancel', end);
   }
 
   function pursuitTick(now) {
