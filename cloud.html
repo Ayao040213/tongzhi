@@ -158,7 +158,6 @@
   .custom-assets .asset .x{ position:absolute; top:2px; right:2px; width:20px; height:20px; background:rgba(0,0,0,.65); color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; line-height:1; cursor:pointer; }
 
   /* ============ 线上训练 · 追视小球 ============ */
-  .pursuit-timer{ position:fixed; top:14px; right:20px; z-index:55; font-size:22px; font-weight:700; color:var(--primary); letter-spacing:1px; }
   .pursuit-area{ position:relative; height:min(72vh,720px); min-height:420px; background:linear-gradient(180deg,#eaf4f7,#f4f9fb); border-radius:16px; overflow:hidden; margin:10px 0; box-shadow:inset 0 2px 10px rgba(20,60,80,.06); }
   .pursuit-ball{ position:absolute; left:0; top:0; width:44px; height:44px; border-radius:50%; background:radial-gradient(circle at 35% 35%, #ffc46b, #f2a33c 60%, #d98324); box-shadow:0 4px 14px rgba(242,163,60,.55); will-change:transform; }
   .speed-slider{ display:flex; align-items:center; gap:10px; }
@@ -204,12 +203,9 @@
   .game-view.pfs .game-back{ color:#fff; }
   .game-view.pfs .pursuit-area{ position:fixed; inset:0; height:100vh; min-height:0; margin:0; border-radius:0; box-shadow:none; }
   .game-view.pfs .pursuit-ball{ width:60px; height:60px; }
-  .game-view.pfs .pursuit-timer{ position:fixed; top:14px; right:20px; z-index:30; color:var(--primary); font-size:24px; }
   .game-view.pfs .small-note{ display:none; }
 
   /* ============ 线上训练 · 哈特表（放射状周边视野表） ============ */
-  .hart-timer{ position:fixed; top:14px; right:20px; z-index:55; font-size:22px; font-weight:700; color:var(--primary); letter-spacing:1px; }
-  .hart-target{ text-align:center; font-size:19px; font-weight:700; color:var(--primary-dark); margin:0 0 6px; }
   .hart-area{ position:relative; height:min(72vh,720px); min-height:460px; background:linear-gradient(180deg,#eaf4f7,#f4f9fb); border-radius:16px; overflow:hidden; margin:10px 0; box-shadow:inset 0 2px 10px rgba(20,60,80,.06); }
   .hart-center{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:18px; height:18px; border-radius:50%; background:#e05050; z-index:2; box-shadow:0 0 0 7px rgba(224,80,80,.16), 0 0 18px rgba(224,80,80,.45); }
   .hart-center::before{ content:''; position:absolute; left:50%; top:50%; width:34px; height:2px; background:rgba(224,80,80,.55); transform:translate(-50%,-50%); }
@@ -217,8 +213,6 @@
   .hart-char{ position:absolute; transform:translate(-50%,-50%); font-weight:700; color:var(--text); user-select:none; line-height:1; }
   .hart-char.on{ color:#e05050; transform:translate(-50%,-50%) scale(1.3); text-shadow:0 0 8px rgba(224,80,80,.55); }
   .game-view.pfs .hart-area{ position:fixed; inset:0; height:100vh; min-height:0; margin:0; border-radius:0; box-shadow:none; background:#000; }
-  .game-view.pfs .hart-timer{ position:fixed; top:14px; right:20px; z-index:30; color:#fff; font-size:24px; text-shadow:0 1px 4px rgba(0,0,0,.6); }
-  .game-view.pfs .hart-target{ position:fixed; top:52px; left:50%; transform:translateX(-50%); z-index:30; color:#fff; font-size:20px; text-shadow:0 1px 4px rgba(0,0,0,.6); }
   .game-view.pfs .hart-char{ color:#fff; }
   .game-view.pfs .hart-char.on{ color:#ff7b7b; text-shadow:0 0 8px rgba(255,120,120,.7); }
 </style>
@@ -608,9 +602,9 @@
         var tL = { h: '左右移动', v: '上下移动', cw: '顺时针', ccw: '逆时针', hj: '左右跳跃', vj: '上下跳跃' }[d.trajectory] || '追视';
         var sL = (typeof d.speed === 'number') ? (fmtSpeed(d.speed) + ' 档') : ({ slow: '慢速', mid: '中速', fast: '快速' }[d.speed] || '');
         var aL = (d.amp != null) ? ('摆幅 ' + d.amp + '%') : '';
-        desc = '追视小球 · ' + tL + ' · ' + sL + (aL ? ' · ' + aL : '') + ' · ' + Math.round((d.duration || 0) / 60) + ' 分钟';
+        desc = '追视小球 · ' + tL + ' · ' + sL + (aL ? ' · ' + aL : '') + ' · ' + Math.round((d.actual || 0) / 60) + ' 分钟';
       }
-      else if (r.type === 'hart') desc = '哈特表 · 答对 ' + (d.correct || 0) + ' · 答错 ' + (d.wrong || 0) + ' · ' + Math.round((d.duration || 0) / 60) + ' 分钟';
+      else if (r.type === 'hart') desc = '哈特表 · 答对 ' + (d.correct || 0) + ' · 答错 ' + (d.wrong || 0) + ' · ' + Math.round((d.actual || 0) / 60) + ' 分钟';
       else desc = r.type;
       var html = '<div class="list-item"><div><div class="t">' + esc(desc) + '</div>' +
         '<div class="s">' + fmtTime(r.created_at) + '</div>';
@@ -1138,7 +1132,6 @@
     pursuit.dur = 180; pursuit.speed = 5; pursuit.traj = 'h'; pursuit.amp = 100;
     var g = $('game-body');
     g.innerHTML = '<div class="game-wide">' +
-      '<div class="pursuit-timer" id="p-timer">--:--</div>' +
       '<div class="pursuit-area" id="p-area"><div class="pursuit-ball" id="p-ball"></div></div>' +
       '<div class="small-note">眼睛跟着小球动，头不要动</div>' +
       '<div class="p-ctrl dock-h" id="p-ctrl" style="left:50%; bottom:16px; transform:translateX(-50%);">' +
@@ -1171,13 +1164,6 @@
             '<span class="speed-label">大</span></div>' +
             '<b class="p-ctrl-val" id="p-amp-val">100%</b>' +
           '</div>' +
-          '<div class="p-ctrl-item">' +
-            '<div class="p-ctrl-item-label">⏱ 时长</div>' +
-            '<div class="stage-tabs" id="p-dur">' +
-              '<button class="stage-tab" data-v="60">1分</button>' +
-              '<button class="stage-tab active" data-v="180">3分</button>' +
-              '<button class="stage-tab" data-v="300">5分</button></div>' +
-          '</div>' +
         '</div>' +
       '</div>' +
       '<button class="p-ctrl-toggle" id="p-ctrl-toggle" style="display:none;">🎛️ 控制台</button>' +
@@ -1198,7 +1184,6 @@
         };
       }
     }
-    bindGroup('p-dur', 'dur');
     bindGroup('p-traj', 'traj');
     $('p-speed').oninput = function () {
       pursuit.speed = parseFloat(this.value);
@@ -1289,10 +1274,9 @@
 
   function pursuitTick(now) {
     if (!pursuit.running) return;
-    var area = $('p-area'), ball = $('p-ball'), timer = $('p-timer');
-    if (!area || !ball || !timer) { pursuit.running = false; return; }
+    var area = $('p-area'), ball = $('p-ball');
+    if (!area || !ball) { pursuit.running = false; return; }
     pursuit.elapsed = (now - pursuit.startedAt) / 1000;
-    if (pursuit.elapsed >= pursuit.dur) { endPursuit(); return; }
     var W = area.clientWidth, H = area.clientHeight;
     var cx = W / 2, cy = H / 2, R = (ball.offsetWidth || 44) / 2;
     var cycle = 5 - 0.4 * pursuit.speed;   // 档位 1(慢≈4.6s) ~ 10(快≈1s)
@@ -1316,9 +1300,6 @@
       else { x = cx + (W / 2 - R - 16) * amp * Math.sin(ph); y = cy; }
     }
     ball.style.transform = 'translate(' + (x - R) + 'px,' + (y - R) + 'px)';
-    var remain = Math.max(0, pursuit.dur - pursuit.elapsed);
-    var mm = Math.floor(remain / 60), ss = Math.floor(remain % 60);
-    timer.textContent = '剩余 ' + (mm < 10 ? '0' + mm : mm) + ':' + (ss < 10 ? '0' + ss : ss);
     pursuit.raf = requestAnimationFrame(pursuitTick);
   }
 
@@ -1342,7 +1323,6 @@
         '<div>轨迹：' + trajL + '</div>' +
         '<div>球速：' + speedL + '</div>' +
         '<div>摆幅：' + (pursuit.amp || 100) + '%</div>' +
-        '<div>设定时长：' + Math.round(pursuit.dur / 60) + ' 分钟</div>' +
         '<div>实际完成：' + Math.floor(actual / 60) + ' 分 ' + (actual % 60) + ' 秒</div>' +
       '</div>' +
       action + '</div>';
@@ -1357,7 +1337,7 @@
     var res = await sb.from('records').insert({
       child_id: pursuit.cid,
       type: 'pursuit',
-      data: { duration: pursuit.dur, speed: pursuit.speed, amp: pursuit.amp, trajectory: pursuit.traj, actual: Math.round(pursuit.elapsed) }
+      data: { speed: pursuit.speed, amp: pursuit.amp, trajectory: pursuit.traj, actual: Math.round(pursuit.elapsed) }
     });
     if (res.error) { alert('打卡失败：' + res.error.message); btn.disabled = false; btn.textContent = '打卡上传给视训师'; return; }
     alert('打卡成功！视训师能看到啦');
@@ -1439,13 +1419,7 @@
 
   function hartTick(now) {
     if (!hart.running) return;
-    var timer = $('hart-timer');
-    if (!timer) { hart.running = false; return; }
     hart.elapsed = (now - hart.startedAt) / 1000;
-    if (hart.elapsed >= hart.dur) { endHart(); return; }
-    var remain = Math.max(0, hart.dur - hart.elapsed);
-    var mm = Math.floor(remain / 60), ss = Math.floor(remain % 60);
-    timer.textContent = '剩余 ' + (mm < 10 ? '0' + mm : mm) + ':' + (ss < 10 ? '0' + ss : ss);
     hart.raf = requestAnimationFrame(hartTick);
   }
 
@@ -1479,7 +1453,7 @@
     var res = await sb.from('records').insert({
       child_id: hart.cid,
       type: 'hart',
-      data: { duration: hart.dur, charset: hart.charset, per_dir: hart.perDir, correct: hart.correct, wrong: hart.wrong, actual: Math.round(hart.elapsed) }
+      data: { charset: hart.charset, per_dir: hart.perDir, correct: hart.correct, wrong: hart.wrong, actual: Math.round(hart.elapsed) }
     });
     if (res.error) { alert('打卡失败：' + res.error.message); btn.disabled = false; btn.textContent = '打卡上传给视训师'; return; }
     alert('打卡成功！视训师能看到啦');
@@ -1493,15 +1467,11 @@
     hart.correct = 0; hart.wrong = 0; hart.target = '';
     var g = $('game-body');
     g.innerHTML = '<div class="game-wide">' +
-      '<div class="hart-timer" id="hart-timer">--:--</div>' +
-      '<div class="hart-target" id="hart-target">👀 眼睛盯住中心红点，报告红色高亮字符</div>' +
       '<div class="hart-area" id="hart-area"></div>' +
       '<div class="small-note">孩子盯中心不动，家长根据孩子报告点「对/错」</div>' +
       '<div class="p-ctrl dock-h" id="p-ctrl" style="left:50%; bottom:16px; transform:translateX(-50%);">' +
         '<div class="p-ctrl-head" id="p-ctrl-head"><span class="p-ctrl-title">🎛️ 控制台</span><button class="p-ctrl-hide" id="p-ctrl-hide">—</button></div>' +
         '<div class="p-ctrl-body">' +
-          '<div class="p-ctrl-item"><div class="p-ctrl-item-label">⏱ 时长</div><div class="stage-tabs" id="h-dur">' +
-            '<button class="stage-tab" data-v="60">1分</button><button class="stage-tab active" data-v="180">3分</button><button class="stage-tab" data-v="300">5分</button></div></div>' +
           '<div class="p-ctrl-item"><div class="p-ctrl-item-label">🔤 字符</div><div class="stage-tabs" id="h-set">' +
             '<button class="stage-tab active" data-v="mix">数字+字母</button><button class="stage-tab" data-v="digit">纯数字</button><button class="stage-tab" data-v="letter">纯字母</button></div></div>' +
           '<div class="p-ctrl-item"><div class="p-ctrl-item-label">🧭 方向</div><div class="stage-tabs" id="h-dir">' +
@@ -1520,7 +1490,6 @@
         '<button class="btn btn-ghost" id="p-stop">⏹ 结束训练</button>' +
       '</div></div>';
 
-    bindHartGroup('h-dur', 'dur', parseInt);
     bindHartGroup('h-set', 'charset');
     bindHartGroup('h-dir', 'dirMode');
     bindHartGroup('h-per', 'perDir', parseInt);
