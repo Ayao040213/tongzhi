@@ -219,6 +219,19 @@
   @media (max-width:768px){
     .btn-small, .logout, .stage-tab, .source-tab, .game-back, .p-ctrl-hide{ min-height:44px; }
   }
+  /* ============ 桌面端布局（可扩展框架，≥900px） ============ */
+  @media (min-width:900px){
+    .wrap{ max-width:1160px; padding:0 24px 48px; }
+    .topbar{ margin:0 -24px; padding:20px 24px 18px; }
+    .login-hero{ margin:0 auto; max-width:520px; }
+    .login-card{ margin:-20px auto 0; max-width:520px; }
+    .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start; }
+    .grid-3{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; align-items:start; }
+    .grid-auto{ display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:16px; align-items:start; }
+    .grid-2 > .list-item, .grid-3 > .list-item, .grid-auto > .list-item,
+    .grid-2 > .card, .grid-3 > .card, .grid-auto > .card{ margin:0; }
+    body.is-parent #content{ max-width:720px; margin:0 auto; }
+  }
 </style>
 </head>
 <body>
@@ -473,6 +486,8 @@
   }
   function home() {
     renderTopbar();
+    document.body.classList.toggle('is-therapist', state.profile.role === 'therapist');
+    document.body.classList.toggle('is-parent', state.profile.role !== 'therapist');
     if (state.profile.role === 'therapist') renderTherapistHome();
     else renderParentHome();
   }
@@ -496,16 +511,20 @@
     c.innerHTML = '<h2 class="page-title">我的家庭</h2>';
     var res = await sb.from('families').select('*').order('created_at', { ascending: false });
     if (res.error) { c.innerHTML += '<div class="empty">读取失败：' + esc(errText(res.error.message)) + '</div>'; return; }
-    if (!res.data.length) c.innerHTML += '<div class="empty">还没有家庭，先创建一个</div>';
-    res.data.forEach(function (f) {
-      c.innerHTML +=
-        '<div class="list-item">' +
-          '<span class="icon">👪</span>' +
-          '<div><div class="t">' + esc(f.name || '（未命名）') + '</div>' +
-          '<div class="s">邀请码：<span class="code">' + esc(f.invite_code) + '</span></div></div>' +
-          '<button class="btn btn-primary btn-small" onclick="openFamily(\'' + f.id + '\')">进入</button>' +
-        '</div>';
-    });
+    if (!res.data.length) { c.innerHTML += '<div class="empty">还没有家庭，先创建一个</div>'; }
+    else {
+      c.innerHTML += '<div class="grid-auto">';
+      res.data.forEach(function (f) {
+        c.innerHTML +=
+          '<div class="list-item">' +
+            '<span class="icon">👪</span>' +
+            '<div><div class="t">' + esc(f.name || '（未命名）') + '</div>' +
+            '<div class="s">邀请码：<span class="code">' + esc(f.invite_code) + '</span></div></div>' +
+            '<button class="btn btn-primary btn-small" onclick="openFamily(\'' + f.id + '\')">进入</button>' +
+          '</div>';
+      });
+      c.innerHTML += '</div>';
+    }
     c.innerHTML +=
       '<div class="card" style="margin-top:16px;"><h2>新建家庭</h2>' +
       '<input id="family-name" placeholder="家庭名，如：小明家">' +
@@ -524,7 +543,7 @@
     var res = await sb.from('families').select('name').eq('id', fid).single();
     var fname = res.data ? res.data.name : '';
     var c = $('content');
-    c.innerHTML = '<h2 class="page-title">家庭：' + esc(fname) + '</h2><div id="child-list"></div>';
+    c.innerHTML = '<h2 class="page-title">家庭：' + esc(fname) + '</h2><div id="child-list" class="grid-auto"></div>';
     c.innerHTML +=
       '<div class="card" style="margin-top:14px;"><h2>添加孩子</h2>' +
       '<div class="row2"><div><label>姓名</label><input id="child-name" placeholder="孩子名字"></div>' +
@@ -558,14 +577,20 @@
     c.innerHTML = '<h2 class="page-title">' + esc(cname) + ' 的档案</h2>' +
       '<p class="page-sub">线上视觉训练 · 训练处方 · 自定义训练 · 回传记录</p>' +
       renderGameBoard() +
-      '<div style="font-size:15px; font-weight:700; margin:18px 0 4px;">📋 训练处方</div>' +
-      '<div id="rx-list"></div>' +
-      '<button class="btn btn-ghost" onclick="newRx()">＋ 新建处方</button>' +
-      '<div style="font-size:15px; font-weight:700; margin:18px 0 4px;">📌 自定义训练</div>' +
-      '<div id="custom-list"></div>' +
-      '<button class="btn btn-ghost" onclick="newCustom()">＋ 新建自定义训练</button>' +
-      '<div style="font-size:15px; font-weight:700; margin:18px 0 4px;">📥 看回传</div>' +
-      '<div id="mod-list"></div>' +
+      '<div class="grid-2">' +
+        '<div>' +
+          '<div style="font-size:15px; font-weight:700; margin:18px 0 4px;">📋 训练处方</div>' +
+          '<div id="rx-list"></div>' +
+          '<button class="btn btn-ghost" onclick="newRx()">＋ 新建处方</button>' +
+          '<div style="font-size:15px; font-weight:700; margin:18px 0 4px;">📌 自定义训练</div>' +
+          '<div id="custom-list"></div>' +
+          '<button class="btn btn-ghost" onclick="newCustom()">＋ 新建自定义训练</button>' +
+        '</div>' +
+        '<div>' +
+          '<div style="font-size:15px; font-weight:700; margin:18px 0 4px;">📥 看回传</div>' +
+          '<div id="mod-list"></div>' +
+        '</div>' +
+      '</div>' +
       '<button class="btn btn-ghost" onclick="openFamily(\'' + state.familyId + '\')">返回</button>';
     renderRxList();
     renderCustomList();
