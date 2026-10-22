@@ -8,8 +8,8 @@
   /* ============ 设计令牌 ============ */
   :root{
     --bg:#f4f8fa; --card:#fff; --primary:#1a7a8c; --primary-dark:#0f5a68;
-    --accent:#f2a33c; --success:#2e9e6b; --bad:#e05a4f; --text:#1f2d33;
-    --muted:#6b7a82; --line:#e3ebef;
+    --accent:#f2a33c; --success:#1f7a4d; --bad:#c0392b; --text:#1f2d33;
+    --muted:#5a6b74; --line:#e3ebef;
   }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body{ margin:0; padding:0; }
@@ -103,7 +103,7 @@
   .stage-tabs, .source-tabs { display:flex; gap:8px; margin:14px 0 0; }
   .stage-tab, .source-tab { flex:1; border:none; border-radius:12px; padding:11px 0; font-size:14px; font-weight:600; cursor:pointer; background:#eef4f6; color:var(--muted); }
   .stage-tab.active { background:var(--primary); color:#fff; }
-  .source-tab.active { background:var(--accent); color:#fff; }
+  .source-tab.active { background:var(--primary); color:#fff; }
   .photo-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
   .photo-cell { position:relative; aspect-ratio:1/1; border-radius:12px; border:2px dashed #c7d7dd; background:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden; }
   .photo-grid.wide .photo-cell { aspect-ratio:4/3; }
@@ -215,6 +215,10 @@
   .game-view.pfs .hart-area{ position:fixed; inset:0; height:100vh; min-height:0; margin:0; border-radius:0; box-shadow:none; background:#000; }
   .game-view.pfs .hart-char{ color:#fff; }
   .game-view.pfs .hart-char.on{ color:#ff7b7b; text-shadow:0 0 8px rgba(255,120,120,.7); }
+  /* 移动端触控目标 ≥44px（无障碍） */
+  @media (max-width:768px){
+    .btn-small, .logout, .stage-tab, .source-tab, .game-back, .p-ctrl-hide{ min-height:44px; }
+  }
 </style>
 </head>
 <body>
@@ -310,6 +314,19 @@
     });
   }
   function fmtTime(iso) { return new Date(iso).toLocaleString('zh-CN'); }
+  // 把 Supabase 英文错误映射成中文可执行文案
+  function errText(msg) {
+    msg = String(msg || '');
+    if (/invalid login credentials/i.test(msg)) return '邮箱或密码错误';
+    if (/already registered/i.test(msg)) return '该邮箱已注册，请直接登录';
+    if (/email not confirmed/i.test(msg)) return '邮箱未确认，请先到邮箱点确认链接';
+    if (/duplicate key/i.test(msg)) return '数据重复，请勿重复提交';
+    if (/row-level security|policy/i.test(msg)) return '没有权限操作';
+    if (/jwt expired|invalid jwt|token expired/i.test(msg)) return '登录已过期，请重新登录';
+    if (/failed to fetch|network/i.test(msg)) return '网络连接失败，请检查网络后重试';
+    if (/rate limit/i.test(msg)) return '操作太频繁，请稍后再试';
+    return msg;
+  }
   function roleText(r) { return r === 'therapist' ? '视训师' : '家长'; }
   function toggleOrig(btn) {
     var box = btn.previousElementSibling;
@@ -415,12 +432,12 @@
     if (signupRole === 'therapist' && !code) { showMsg('视训师需要填写授权码'); return; }
     showMsg('正在注册……');
     var res = await sb.auth.signUp({ email: email, password: password });
-    if (res.error) { showMsg('注册失败：' + res.error.message); return; }
+    if (res.error) { showMsg('注册失败：' + errText(res.error.message)); return; }
     // 视训师：注册后立刻用授权码升级身份
     if (signupRole === 'therapist') {
       if (!res.data.session) { showMsg('注册成功，但未自动登录。请点「登录」后，在首页输入授权码升级', true); return; }
       var r = await sb.rpc('register_therapist', { p_code: code });
-      if (r.error) { showMsg('升级失败：' + r.error.message, false); await sb.auth.signOut(); showLogin(); return; }
+      if (r.error) { showMsg('升级失败：' + errText(r.error.message), false); await sb.auth.signOut(); showLogin(); return; }
       if (r.data === false) { showMsg('授权码错误，账号已注册为「家长」。请用此邮箱登录，在首页点「我是视训师」重试', false); await sb.auth.signOut(); showLogin(); return; }
       showMsg('注册成功，已成为视训师', true); afterLogin(res.data.user);
       return;
@@ -433,7 +450,7 @@
     if (!email || !password) { showMsg('请填写邮箱和密码'); return; }
     showMsg('正在登录……');
     var res = await sb.auth.signInWithPassword({ email: email, password: password });
-    if (res.error) { showMsg('登录失败：' + res.error.message); return; }
+    if (res.error) { showMsg('登录失败：' + errText(res.error.message)); return; }
     afterLogin(res.data.user);
   }
   async function signOut() { await sb.auth.signOut(); state.user = null; state.profile = null; showLogin(); }
@@ -478,7 +495,7 @@
     var c = $('content');
     c.innerHTML = '<h2 class="page-title">我的家庭</h2>';
     var res = await sb.from('families').select('*').order('created_at', { ascending: false });
-    if (res.error) { c.innerHTML += '<div class="empty">读取失败：' + esc(res.error.message) + '</div>'; return; }
+    if (res.error) { c.innerHTML += '<div class="empty">读取失败：' + esc(errText(res.error.message)) + '</div>'; return; }
     if (!res.data.length) c.innerHTML += '<div class="empty">还没有家庭，先创建一个</div>';
     res.data.forEach(function (f) {
       c.innerHTML +=
@@ -498,7 +515,7 @@
     var name = $('family-name').value.trim();
     if (!name) { alert('请填家庭名'); return; }
     var res = await sb.from('families').insert({ name: name, therapist_id: state.user.id }).select();
-    if (res.error) { alert('创建失败：' + res.error.message); return; }
+    if (res.error) { alert('创建失败：' + errText(res.error.message)); return; }
     alert('创建成功！邀请码是 ' + res.data[0].invite_code);
     renderTherapistHome();
   }
@@ -516,7 +533,7 @@
       '<button class="btn btn-ghost" onclick="home()">返回</button>';
     var cr = await sb.from('children').select('*').eq('family_id', fid).order('created_at');
     var box = $('child-list');
-    if (cr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(cr.error.message) + '</div>'; return; }
+    if (cr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(cr.error.message)) + '</div>'; return; }
     if (!cr.data.length) box.innerHTML = '<div class="empty">这个家庭还没有孩子</div>';
     cr.data.forEach(function (k) {
       box.innerHTML +=
@@ -529,7 +546,7 @@
     var name = $('child-name').value.trim(), age = $('child-age').value;
     if (!name) { alert('请填孩子姓名'); return; }
     var res = await sb.from('children').insert({ family_id: state.familyId, name: name, age: age ? parseInt(age) : null }).select();
-    if (res.error) { alert('添加失败：' + res.error.message); return; }
+    if (res.error) { alert('添加失败：' + errText(res.error.message)); return; }
     openFamily(state.familyId);
   }
   async function openChild(cid) {
@@ -554,7 +571,7 @@
     renderCustomList();
     var rr = await sb.from('records').select('type').eq('child_id', cid);
     var box = $('mod-list');
-    if (rr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(rr.error.message) + '</div>'; return; }
+    if (rr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(rr.error.message)) + '</div>'; return; }
     if (!rr.data.length) { box.innerHTML = '<div class="empty">还没有回传记录</div>'; return; }
     var types = [
       { key: 'eye', label: '眼位照', icon: '👁️', desc: '九宫格眼位图' },
@@ -588,7 +605,7 @@
       '<button class="btn btn-ghost" onclick="openChild(\'' + cid + '\')">返回分类</button>';
     var rr = await sb.from('records').select('*').eq('child_id', cid).eq('type', type).order('created_at', { ascending: false });
     var box = $('rec-list');
-    if (rr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(rr.error.message) + '</div>'; return; }
+    if (rr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(rr.error.message)) + '</div>'; return; }
     if (!rr.data.length) { box.innerHTML = '<div class="empty">这个分类还没有回传</div>'; return; }
     for (var i = 0; i < rr.data.length; i++) {
       var r = rr.data[i];
@@ -649,7 +666,7 @@
       if (paths.length) { await sb.storage.from('media').remove(paths); }
     }
     var res = await sb.from('records').delete().eq('id', recId);
-    if (res.error) { alert('删除失败：' + res.error.message); return; }
+    if (res.error) { alert('删除失败：' + errText(res.error.message)); return; }
     openChildType(state.childId, type);
   }
 
@@ -695,7 +712,7 @@
     if (!box) return;
     box.innerHTML = '<div class="empty">读取中…</div>';
     var res = await sb.from('prescriptions').select('*').eq('child_id', state.childId).order('created_at', { ascending: false });
-    if (res.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(res.error.message) + '</div>'; return; }
+    if (res.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(res.error.message)) + '</div>'; return; }
     box.innerHTML = '';
     if (!res.data.length) { box.innerHTML = '<div class="empty">还没有处方，点下方「＋ 新建处方」。</div>'; return; }
     res.data.forEach(function (p) {
@@ -710,7 +727,7 @@
   async function delRx(id) {
     if (!confirm('确定删除这张处方？')) return;
     var res = await sb.from('prescriptions').delete().eq('id', id);
-    if (res.error) { alert('删除失败：' + res.error.message); return; }
+    if (res.error) { alert('删除失败：' + errText(res.error.message)); return; }
     renderRxList();
   }
 
@@ -765,7 +782,7 @@
     var res = await sb.from('prescriptions').insert({
       child_id: state.childId, title: todayStrCN(), items: JSON.stringify(draft.projects), note: draft.note
     });
-    if (res.error) { alert('保存失败：' + res.error.message); return; }
+    if (res.error) { alert('保存失败：' + errText(res.error.message)); return; }
     alert('处方已保存，家长能看到啦！');
     openChild(state.childId);
   }
@@ -775,7 +792,7 @@
     var box = $('rx-home-list');
     if (!box) return;
     var res = await sb.from('prescriptions').select('*');
-    if (res.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(res.error.message) + '</div>'; return; }
+    if (res.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(res.error.message)) + '</div>'; return; }
     if (!res.data.length) { box.innerHTML = '<div class="empty">视训师还没有开处方</div>'; return; }
     var nameOf = {};
     children.forEach(function (k) { nameOf[k.id] = k.name; });
@@ -832,7 +849,7 @@
     if (!box) return;
     box.innerHTML = '<div class="empty">读取中…</div>';
     var res = await sb.from('custom_projects').select('*').eq('child_id', state.childId).order('created_at', { ascending: false });
-    if (res.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(res.error.message) + '</div>'; return; }
+    if (res.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(res.error.message)) + '</div>'; return; }
     box.innerHTML = '';
     if (!res.data.length) { box.innerHTML = '<div class="empty">还没有自定义训练，点下方「＋ 新建自定义训练」。</div>'; return; }
     res.data.forEach(function (p) {
@@ -848,7 +865,7 @@
   async function delCustom(id) {
     if (!confirm('确定删除这个自定义训练？')) return;
     var res = await sb.from('custom_projects').delete().eq('id', id);
-    if (res.error) { alert('删除失败：' + res.error.message); return; }
+    if (res.error) { alert('删除失败：' + errText(res.error.message)); return; }
     renderCustomList();
   }
 
@@ -931,7 +948,7 @@
     var projId = customDraftId;
     if (!projId) {
       var ins = await sb.from('custom_projects').insert({ child_id: state.childId, title: name, content: desc, media: [] }).select();
-      if (ins.error) { alert('保存失败：' + ins.error.message); btn.disabled = false; btn.textContent = '保存并布置'; return; }
+      if (ins.error) { alert('保存失败：' + errText(ins.error.message)); btn.disabled = false; btn.textContent = '保存并布置'; return; }
       projId = ins.data[0].id;
     }
 
@@ -946,13 +963,13 @@
       if (m.type === 'image') { f = await compressImage(f, 1280, 0.7); ext = 'jpg'; }
       var path = state.childId + '/custom/' + projId + '/' + Date.now() + '_' + i + '.' + ext;
       var up = await sb.storage.from('media').upload(path, f);
-      if (up.error) { alert('素材上传失败：' + up.error.message); btn.disabled = false; btn.textContent = '保存并布置'; return; }
+      if (up.error) { alert('素材上传失败：' + errText(up.error.message)); btn.disabled = false; btn.textContent = '保存并布置'; return; }
       finalMedia.push({ path: path, type: m.type });
     }
 
     // 3. 更新标题/内容/素材
     var upd = await sb.from('custom_projects').update({ title: name, content: desc, media: finalMedia }).eq('id', projId);
-    if (upd.error) { alert('保存失败：' + upd.error.message); btn.disabled = false; btn.textContent = '保存并布置'; return; }
+    if (upd.error) { alert('保存失败：' + errText(upd.error.message)); btn.disabled = false; btn.textContent = '保存并布置'; return; }
     alert('已保存，家长能看到啦！');
     openChild(state.childId);
   }
@@ -962,7 +979,7 @@
     var box = $('custom-home-list');
     if (!box) return;
     var res = await sb.from('custom_projects').select('*');
-    if (res.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(res.error.message) + '</div>'; return; }
+    if (res.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(res.error.message)) + '</div>'; return; }
     if (!res.data.length) { box.innerHTML = '<div class="empty">视训师还没有布置训练</div>'; return; }
     var nameOf = {};
     children.forEach(function (k) { nameOf[k.id] = k.name; });
@@ -1020,7 +1037,7 @@
     var box = $('custom-progress');
     if (!box) return;
     var r = await sb.from('records').select('*').eq('child_id', state.childId).eq('type', 'custom').order('created_at', { ascending: false });
-    if (r.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(r.error.message) + '</div>'; return; }
+    if (r.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(r.error.message)) + '</div>'; return; }
     var mine = r.data.filter(function (x) { var d = x.data || {}; return d.custom_id === projId; });
     if (!mine.length) { box.innerHTML = '<div style="font-size:13px; color:var(--muted); padding:6px 0;">还没有回传进度，点下方按钮拍照。</div>'; return; }
     box.innerHTML = '';
@@ -1048,9 +1065,9 @@
     file = await compressImage(file, 1280, 0.7);
     var path = state.childId + '/progress/' + Date.now() + '.jpg';
     var up = await sb.storage.from('media').upload(path, file, { contentType: 'image/jpeg' });
-    if (up.error) { alert('上传失败：' + up.error.message); return; }
+    if (up.error) { alert('上传失败：' + errText(up.error.message)); return; }
     var ins = await sb.from('records').insert({ child_id: state.childId, type: 'custom', data: { custom_id: projId, custom_title: cname }, media: [path] });
-    if (ins.error) { alert('提交失败：' + ins.error.message); return; }
+    if (ins.error) { alert('提交失败：' + errText(ins.error.message)); return; }
     alert('回传成功，视训师能看到啦！');
     await renderCustomProgress(projId);
   }
@@ -1339,7 +1356,7 @@
       type: 'pursuit',
       data: { speed: pursuit.speed, amp: pursuit.amp, trajectory: pursuit.traj, actual: Math.round(pursuit.elapsed) }
     });
-    if (res.error) { alert('打卡失败：' + res.error.message); btn.disabled = false; btn.textContent = '打卡上传给视训师'; return; }
+    if (res.error) { alert('打卡失败：' + errText(res.error.message)); btn.disabled = false; btn.textContent = '打卡上传给视训师'; return; }
     alert('打卡成功！视训师能看到啦');
     closeGame();
   }
@@ -1455,7 +1472,7 @@
       type: 'hart',
       data: { charset: hart.charset, per_dir: hart.perDir, correct: hart.correct, wrong: hart.wrong, actual: Math.round(hart.elapsed) }
     });
-    if (res.error) { alert('打卡失败：' + res.error.message); btn.disabled = false; btn.textContent = '打卡上传给视训师'; return; }
+    if (res.error) { alert('打卡失败：' + errText(res.error.message)); btn.disabled = false; btn.textContent = '打卡上传给视训师'; return; }
     alert('打卡成功！视训师能看到啦');
     closeGame();
   }
@@ -1566,7 +1583,7 @@
     var code = $('upgrade-code').value.trim();
     if (!code) { alert('请输入授权码'); return; }
     var r = await sb.rpc('register_therapist', { p_code: code });
-    if (r.error) { alert('升级失败：' + r.error.message); return; }
+    if (r.error) { alert('升级失败：' + errText(r.error.message)); return; }
     if (r.data === false) { alert('授权码错误，请核对后重试'); return; }
     alert('升级成功，已成为视训师！');
     await loadProfile();
@@ -1576,7 +1593,7 @@
     var code = $('invite-code').value.trim();
     if (!code) { alert('请输入邀请码'); return; }
     var res = await sb.rpc('join_family', { p_code: code });
-    if (res.error) { alert('加入失败：' + res.error.message); return; }
+    if (res.error) { alert('加入失败：' + errText(res.error.message)); return; }
     alert('加入成功！');
     await loadProfile();
     renderParentFamily();
@@ -1588,7 +1605,7 @@
     c.innerHTML = '<h2 class="page-title">我的家庭' + (fam.data ? '：' + esc(fam.data.name) : '') + '</h2><div id="child-list"></div>';
     var cr = await sb.from('children').select('*').eq('family_id', fid).order('created_at');
     var box = $('child-list');
-    if (cr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(cr.error.message) + '</div>'; return; }
+    if (cr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(cr.error.message)) + '</div>'; return; }
     if (!cr.data.length) box.innerHTML = '<div class="empty">视训师还没有添加孩子，等等再来</div>';
     var cols = '1fr 1fr 1fr';
     cr.data.forEach(function (k) {
@@ -1638,7 +1655,7 @@
     var res = await sb.from('records').insert({
       child_id: state.childId, type: 'peripheral', data: { hit: hit, miss: miss }
     }).select();
-    if (res.error) { setStatus('提交失败：' + res.error.message, true); btn.disabled = false; return; }
+    if (res.error) { setStatus('提交失败：' + errText(res.error.message), true); btn.disabled = false; return; }
     var recId = res.data[0].id;
 
     // 2. 上传照片/视频（图片先压缩，减小体积，上传更快）
@@ -1659,14 +1676,14 @@
       setStatus('正在上传 ' + (i + 1) + '/' + files.length + ' …');
       var path = state.childId + '/' + recId + '/' + Date.now() + '_' + (i + 1) + '.' + ext;
       var up = await sb.storage.from('media').upload(path, f);
-      if (up.error) { setStatus('上传失败：' + up.error.message, true); btn.disabled = false; return; }
+      if (up.error) { setStatus('上传失败：' + errText(up.error.message), true); btn.disabled = false; return; }
       media.push(path);
     }
 
     // 3. 把文件路径存回这条记录
     if (media.length) {
       var upd = await sb.from('records').update({ media: media }).eq('id', recId);
-      if (upd.error) { setStatus('保存失败：' + upd.error.message, true); btn.disabled = false; return; }
+      if (upd.error) { setStatus('保存失败：' + errText(upd.error.message), true); btn.disabled = false; return; }
     }
     setStatus('回传成功！视训师那边已经能看到了');
     setTimeout(function () { home(); }, 600);
@@ -1890,11 +1907,11 @@
       // 先传文件，再建记录（一步把路径存进去，避免"记录建了但图没传上"留空记录）
       var path = state.childId + '/eye/' + Date.now() + '_' + eyeStage + '.png';
       var up = await sb.storage.from('media').upload(path, blob, { contentType: 'image/png' });
-      if (up.error) throw new Error('上传失败：' + up.error.message);
+      if (up.error) throw new Error('上传失败：' + errText(up.error.message));
       var ins = await sb.from('records').insert({
         child_id: state.childId, type: 'eye', data: { stage: eyeStage }, media: [path]
       });
-      if (ins.error) throw new Error('提交失败：' + ins.error.message);
+      if (ins.error) throw new Error('提交失败：' + errText(ins.error.message));
       alert(eyeStageLabel() + '眼位图已回传，视训师能看到啦！');
       clearEye();   // 清空本阶段照片，准备拍下一个阶段
     } catch (e) {
@@ -2029,14 +2046,14 @@
         btn.textContent = '上传 ' + (i + 1) + '/' + keys.length + ' …';
         var path = cid + '/marsden/' + Date.now() + '_' + key + '.' + ext;
         var up = await sb.storage.from('media').upload(path, compressed, { contentType: compressed.type || v.file.type || 'video/mp4' });
-        if (up.error) throw new Error('上传失败：' + up.error.message);
+        if (up.error) throw new Error('上传失败：' + errText(up.error.message));
         media.push(path);
       }
       // 先建记录（只存压缩版，视训师立刻能看）
       var ins = await sb.from('records').insert({
         child_id: cid, type: 'marsden', data: { slots: keys }, media: media
       }).select();
-      if (ins.error) throw new Error('提交失败：' + ins.error.message);
+      if (ins.error) throw new Error('提交失败：' + errText(ins.error.message));
       alert('马斯登球视频已回传，视训师能看到啦！');
       home();
       // 后台补传原画质（不阻塞，失败也不影响压缩版）
