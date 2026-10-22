@@ -214,15 +214,15 @@
   .hart-center{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:18px; height:18px; border-radius:50%; background:#e05050; z-index:2; box-shadow:0 0 0 7px rgba(224,80,80,.16), 0 0 18px rgba(224,80,80,.45); }
   .hart-center::before{ content:''; position:absolute; left:50%; top:50%; width:34px; height:2px; background:rgba(224,80,80,.55); transform:translate(-50%,-50%); }
   .hart-center::after{ content:''; position:absolute; left:50%; top:50%; width:2px; height:34px; background:rgba(224,80,80,.55); transform:translate(-50%,-50%); }
-  .hart-char{ position:absolute; transform:translate(-50%,-50%); font-weight:700; color:var(--text); cursor:pointer; user-select:none; line-height:1; }
-  .hart-char:hover{ color:var(--primary); }
-  .hart-char.hit{ color:var(--success); }
-  .hart-char.wrong{ color:var(--bad); }
+  .hart-char{ position:absolute; transform:translate(-50%,-50%); font-weight:700; color:var(--text); user-select:none; line-height:1; }
+  .hart-char.on{ color:#e05050; transform:translate(-50%,-50%) scale(1.3); text-shadow:0 0 8px rgba(224,80,80,.55); }
+  .hart-judge{ display:flex; gap:12px; margin:12px 0 4px; }
+  .hart-judge .btn{ flex:1; margin-top:0; padding:14px 0; font-size:16px; font-weight:700; border-radius:14px; }
   .game-view.pfs .hart-area{ position:fixed; inset:0; height:100vh; min-height:0; margin:0; border-radius:0; box-shadow:none; }
   .game-view.pfs .hart-timer{ position:fixed; top:14px; left:50%; transform:translateX(-50%); z-index:30; color:#fff; font-size:24px; text-shadow:0 1px 4px rgba(0,0,0,.6); }
   .game-view.pfs .hart-target{ position:fixed; top:52px; left:50%; transform:translateX(-50%); z-index:30; color:#fff; font-size:20px; text-shadow:0 1px 4px rgba(0,0,0,.6); }
   .game-view.pfs .hart-char{ color:#fff; }
-  .game-view.pfs .hart-char:hover{ color:var(--primary); }
+  .game-view.pfs .hart-char.on{ color:#ff7b7b; text-shadow:0 0 8px rgba(255,120,120,.7); }
 </style>
 </head>
 <body>
@@ -612,7 +612,7 @@
         var aL = (d.amp != null) ? ('摆幅 ' + d.amp + '%') : '';
         desc = '追视小球 · ' + tL + ' · ' + sL + (aL ? ' · ' + aL : '') + ' · ' + Math.round((d.duration || 0) / 60) + ' 分钟';
       }
-      else if (r.type === 'hart') desc = '哈特表 · 找对 ' + (d.correct || 0) + ' · 误点 ' + (d.wrong || 0) + ' · ' + Math.round((d.duration || 0) / 60) + ' 分钟';
+      else if (r.type === 'hart') desc = '哈特表 · 答对 ' + (d.correct || 0) + ' · 答错 ' + (d.wrong || 0) + ' · ' + Math.round((d.duration || 0) / 60) + ' 分钟';
       else desc = r.type;
       var html = '<div class="list-item"><div><div class="t">' + esc(desc) + '</div>' +
         '<div class="s">' + fmtTime(r.created_at) + '</div>';
@@ -1367,7 +1367,7 @@
   }
 
   // ---------- 线上训练 · 哈特表（放射状周边视野表） ----------
-  var hart = { cid: null, cname: '', preview: false, dur: 180, charset: 'mix', perDir: 4, chars: [], target: '', correct: 0, wrong: 0, elapsed: 0, running: false, startedAt: 0, raf: null };
+  var hart = { cid: null, cname: '', preview: false, dur: 180, charset: 'mix', perDir: 4, chars: [], target: '', targetIdx: -1, correct: 0, wrong: 0, elapsed: 0, running: false, startedAt: 0, raf: null };
 
   function hartCharset(type) {
     if (type === 'digit') return '0123456789'.split('');
@@ -1406,32 +1406,26 @@
       html += '<span class="hart-char" data-idx="' + k + '" style="left:' + Math.round(c.x) + 'px; top:' + Math.round(c.y) + 'px; font-size:' + Math.round(c.fs) + 'px;">' + c.ch + '</span>';
     }
     area.innerHTML = html;
-    var spans = area.querySelectorAll('.hart-char');
-    for (var j = 0; j < spans.length; j++) {
-      spans[j].onclick = function () { onHartClick(parseInt(this.getAttribute('data-idx'), 10), this); };
-    }
     pickHartTarget();
   }
 
   function pickHartTarget() {
     if (!hart.chars.length) return;
-    hart.target = hart.chars[Math.floor(Math.random() * hart.chars.length)].ch;
-    var t = $('hart-target');
-    if (t) t.textContent = '🔍 找到：' + hart.target;
+    var area = $('hart-area');
+    var prev = area ? area.querySelector('.hart-char.on') : null;
+    if (prev) prev.classList.remove('on');
+    hart.targetIdx = Math.floor(Math.random() * hart.chars.length);
+    hart.target = hart.chars[hart.targetIdx].ch;
+    if (area) {
+      var el = area.querySelector('.hart-char[data-idx="' + hart.targetIdx + '"]');
+      if (el) el.classList.add('on');
+    }
   }
 
-  function onHartClick(idx, el) {
+  function judgeHart(ok) {
     if (!hart.running) return;
-    if (hart.chars[idx].ch === hart.target) {
-      hart.correct++;
-      el.classList.add('hit');
-      setTimeout(function () { el.classList.remove('hit'); }, 180);
-      pickHartTarget();
-    } else {
-      hart.wrong++;
-      el.classList.add('wrong');
-      setTimeout(function () { el.classList.remove('wrong'); }, 180);
-    }
+    if (ok) hart.correct++; else hart.wrong++;
+    pickHartTarget();
   }
 
   function hartTick(now) {
@@ -1460,8 +1454,8 @@
     g.innerHTML = '<div class="game-inner">' +
       '<h2 class="page-title">' + title + '</h2>' +
       '<div class="card" style="line-height:2.1;">' +
-        '<div>找对：' + hart.correct + ' 个</div>' +
-        '<div>误点：' + hart.wrong + ' 个</div>' +
+        '<div>答对：' + hart.correct + ' 个</div>' +
+        '<div>答错：' + hart.wrong + ' 个</div>' +
         '<div>用时：' + Math.floor(actual / 60) + ' 分 ' + (actual % 60) + ' 秒</div>' +
       '</div>' +
       action + '</div>';
@@ -1491,9 +1485,10 @@
     var g = $('game-body');
     g.innerHTML = '<div class="game-wide">' +
       '<div class="hart-timer" id="hart-timer">--:--</div>' +
-      '<div class="hart-target" id="hart-target">🔍 找到：</div>' +
+      '<div class="hart-target" id="hart-target">👀 眼睛盯住中心红点，报告红色高亮字符</div>' +
       '<div class="hart-area" id="hart-area"></div>' +
-      '<div class="small-note">眼睛盯住中心红点，用周边视野找目标并点击</div>' +
+      '<div class="hart-judge"><button class="btn btn-primary" id="hart-yes">✓ 对</button><button class="btn btn-ghost" id="hart-no">✗ 错</button></div>' +
+      '<div class="small-note">孩子盯中心不动，家长根据孩子报告点「对/错」</div>' +
       '<div class="p-ctrl dock-h" id="p-ctrl" style="left:50%; bottom:16px; transform:translateX(-50%);">' +
         '<div class="p-ctrl-head" id="p-ctrl-head"><span class="p-ctrl-title">🎛️ 控制台</span><button class="p-ctrl-hide" id="p-ctrl-hide">—</button></div>' +
         '<div class="p-ctrl-body">' +
@@ -1515,6 +1510,8 @@
     bindHartGroup('h-per', 'perDir', parseInt);
     $('p-stop').onclick = endHart;
     $('p-fs').onclick = toggleHartFs;
+    $('hart-yes').onclick = function () { judgeHart(true); };
+    $('hart-no').onclick = function () { judgeHart(false); };
     $('p-ctrl-hide').onclick = hideCtrl;
     $('p-ctrl-toggle').onclick = showCtrl;
     initCtrlDrag();
