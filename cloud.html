@@ -589,7 +589,7 @@
       else if (r.type === 'marsden') desc = '马斯登球 · ' + ((d.slots && d.slots.length) ? (d.slots.length + ' 段视频') : '视频');
       else if (r.type === 'custom') desc = '自定义训练 · ' + (d.custom_title || '回传');
       else if (r.type === 'pursuit') {
-        var tL = { h: '左右移动', v: '上下移动', cw: '顺时针', ccw: '逆时针' }[d.trajectory] || '追视';
+        var tL = { h: '左右移动', v: '上下移动', cw: '顺时针', ccw: '逆时针', hj: '左右跳跃', vj: '上下跳跃' }[d.trajectory] || '追视';
         var sL = (typeof d.speed === 'number') ? (fmtSpeed(d.speed) + ' 档') : ({ slow: '慢速', mid: '中速', fast: '快速' }[d.speed] || '');
         var aL = (d.amp != null) ? ('摆幅 ' + d.amp + '%') : '';
         desc = '追视小球 · ' + tL + ' · ' + sL + (aL ? ' · ' + aL : '') + ' · ' + Math.round((d.duration || 0) / 60) + ' 分钟';
@@ -1044,16 +1044,72 @@
   }
 
   // ---------- 线上训练 · 追视小球（电脑/大屏专用） ----------
-  var pursuit = { cid: null, cname: '', preview: false, dur: 180, speed: 5, amp: 100, traj: 'h', raf: null, elapsed: 0, running: false, startedAt: 0 };
+  var pursuit = { cid: null, cname: '', preview: false, dur: 180, speed: 5, amp: 100, traj: 'h', raf: null, elapsed: 0, running: false, startedAt: 0, lastSign: null, jumpCount: 0 };
 
   function isBigScreen() { return window.innerWidth >= 900; }
   function fmtSpeed(v) { return String(Math.round(v * 10) / 10); }
+
+  // ---------- 音效（Web Audio 生成，无外部素材） ----------
+  var audioCtx = null, sirenOsc = null, sirenGain = null, soundOn = true;
+  function isJumpTraj(t) { return t === 'hj' || t === 'vj'; }
+  function initAudio() {
+    if (audioCtx) { if (audioCtx.state === 'suspended') audioCtx.resume(); return; }
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    } catch (e) { audioCtx = null; }
+  }
+  function startSiren() {
+    if (!audioCtx || !soundOn) return;
+    stopSiren();
+    sirenOsc = audioCtx.createOscillator();
+    sirenGain = audioCtx.createGain();
+    sirenOsc.type = 'triangle';
+    sirenOsc.frequency.value = 650;
+    sirenGain.gain.value = 0.10;
+    sirenOsc.connect(sirenGain); sirenGain.connect(audioCtx.destination);
+    sirenOsc.start();
+  }
+  function updateSiren(ph) {
+    if (!sirenOsc) return;
+    sirenOsc.frequency.value = 650 + 220 * Math.sin(ph);
+  }
+  function stopSiren() {
+    if (sirenOsc) { try { sirenOsc.stop(); } catch (e) {} sirenOsc.disconnect(); sirenOsc = null; }
+    if (sirenGain) { sirenGain.disconnect(); sirenGain = null; }
+  }
+  function playJumpSound() {
+    if (!audioCtx || !soundOn) return;
+    var t = audioCtx.currentTime;
+    var osc = audioCtx.createOscillator(), g = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = (pursuit.jumpCount % 2 === 0) ? 880 : 440;   // 叮(高)/咚(低)交替
+    pursuit.jumpCount++;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.5, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+    osc.connect(g); g.connect(audioCtx.destination);
+    osc.start(t); osc.stop(t + 0.32);
+  }
+  function toggleSound() {
+    soundOn = !soundOn;
+    var btn = $('p-sound');
+    if (btn) btn.textContent = soundOn ? '🔊 音效开' : '🔇 音效关';
+    if (!soundOn) stopSiren();
+    else if (pursuit.running && !isJumpTraj(pursuit.traj)) startSiren();
+  }
+  function onTrajChange() {
+    if (!pursuit.running) return;
+    if (isJumpTraj(pursuit.traj)) { stopSiren(); pursuit.lastSign = null; }
+    else startSiren();
+  }
   function openGame() { $('game-view').classList.add('open'); document.body.style.overflow = 'hidden'; }
   function closeGame() {
     $('game-view').classList.remove('open');
     $('game-view').classList.remove('pfs');
     document.body.style.overflow = '';
     if (pursuit.running) { pursuit.running = false; if (pursuit.raf) { cancelAnimationFrame(pursuit.raf); pursuit.raf = null; } }
+    stopSiren();
     home();
   }
 
@@ -1085,7 +1141,9 @@
               '<button class="stage-tab active" data-v="h">左右</button>' +
               '<button class="stage-tab" data-v="v">上下</button>' +
               '<button class="stage-tab" data-v="cw">顺时针</button>' +
-              '<button class="stage-tab" data-v="ccw">逆时针</button></div>' +
+              '<button class="stage-tab" data-v="ccw">逆时针</button>' +
+              '<button class="stage-tab" data-v="hj">左右跳</button>' +
+              '<button class="stage-tab" data-v="vj">上下跳</button></div>' +
           '</div>' +
           '<div class="p-ctrl-item">' +
             '<div class="p-ctrl-item-label">📏 摆幅</div>' +
@@ -1105,6 +1163,7 @@
       '</div>' +
       '<button class="p-ctrl-toggle" id="p-ctrl-toggle" style="display:none;">🎛️ 控制台</button>' +
       '<div class="p-act">' +
+        '<button class="btn btn-ghost" id="p-sound">🔊 音效开</button>' +
         '<button class="btn btn-ghost" id="p-fs">🔲 放大全屏</button>' +
         '<button class="btn btn-ghost" id="p-stop">⏹ 结束训练</button>' +
       '</div></div>';
@@ -1116,6 +1175,7 @@
           for (var j = 0; j < btns.length; j++) btns[j].classList.toggle('active', btns[j] === this);
           var v = this.getAttribute('data-v');
           pursuit[key] = (key === 'dur') ? parseInt(v, 10) : v;
+          if (key === 'traj') onTrajChange();
         };
       }
     }
@@ -1131,14 +1191,18 @@
     };
     $('p-stop').onclick = endPursuit;
     $('p-fs').onclick = togglePursuitFs;
+    $('p-sound').onclick = toggleSound;
     $('p-ctrl-hide').onclick = hideCtrl;
     $('p-ctrl-toggle').onclick = showCtrl;
     initCtrlDrag();
 
+    initAudio();
+    pursuit.lastSign = null; pursuit.jumpCount = 0;
     openGame();
     pursuit.elapsed = 0;
     pursuit.startedAt = performance.now();
     pursuit.running = true;
+    if (isJumpTraj(pursuit.traj)) stopSiren(); else startSiren();
     pursuit.raf = requestAnimationFrame(pursuitTick);
   }
 
@@ -1217,10 +1281,21 @@
     var w = 2 * Math.PI / cycle;
     var ph = w * pursuit.elapsed;
     var x, y;
-    if (pursuit.traj === 'v') { x = cx; y = cy + (H / 2 - R - 16) * amp * Math.sin(ph); }
-    else if (pursuit.traj === 'cw') { var r1 = (Math.min(W, H) / 2 - R - 16) * amp; x = cx + r1 * Math.cos(ph); y = cy + r1 * Math.sin(ph); }
-    else if (pursuit.traj === 'ccw') { var r2 = (Math.min(W, H) / 2 - R - 16) * amp; x = cx + r2 * Math.cos(ph); y = cy - r2 * Math.sin(ph); }
-    else { x = cx + (W / 2 - R - 16) * amp * Math.sin(ph); y = cy; }
+    if (isJumpTraj(pursuit.traj)) {
+      // 跳跃：两端之间瞬间跳转（方波），配合节拍器音效
+      var sign = Math.sin(ph) >= 0 ? 1 : -1;
+      if (pursuit.lastSign !== null && sign !== pursuit.lastSign) playJumpSound();
+      pursuit.lastSign = sign;
+      var reach = (pursuit.traj === 'hj') ? (W / 2 - R - 16) : (H / 2 - R - 16);
+      if (pursuit.traj === 'hj') { x = cx + reach * amp * sign; y = cy; }
+      else { x = cx; y = cy + reach * amp * sign; }
+    } else {
+      updateSiren(ph);
+      if (pursuit.traj === 'v') { x = cx; y = cy + (H / 2 - R - 16) * amp * Math.sin(ph); }
+      else if (pursuit.traj === 'cw') { var r1 = (Math.min(W, H) / 2 - R - 16) * amp; x = cx + r1 * Math.cos(ph); y = cy + r1 * Math.sin(ph); }
+      else if (pursuit.traj === 'ccw') { var r2 = (Math.min(W, H) / 2 - R - 16) * amp; x = cx + r2 * Math.cos(ph); y = cy - r2 * Math.sin(ph); }
+      else { x = cx + (W / 2 - R - 16) * amp * Math.sin(ph); y = cy; }
+    }
     ball.style.transform = 'translate(' + (x - R) + 'px,' + (y - R) + 'px)';
     var remain = Math.max(0, pursuit.dur - pursuit.elapsed);
     var mm = Math.floor(remain / 60), ss = Math.floor(remain % 60);
@@ -1232,9 +1307,10 @@
     if (!pursuit.running) return;
     pursuit.running = false;
     if (pursuit.raf) { cancelAnimationFrame(pursuit.raf); pursuit.raf = null; }
+    stopSiren();
     $('game-view').classList.remove('pfs');
     var actual = Math.round(pursuit.elapsed);
-    var trajL = { h: '左右移动', v: '上下移动', cw: '顺时针', ccw: '逆时针' }[pursuit.traj] || '';
+    var trajL = { h: '左右移动', v: '上下移动', cw: '顺时针', ccw: '逆时针', hj: '左右跳跃', vj: '上下跳跃' }[pursuit.traj] || '';
     var speedL = fmtSpeed(pursuit.speed) + ' 档';
     var g = $('game-body');
     var title = pursuit.preview ? '试玩结束 ✅' : '训练完成 ✅';
