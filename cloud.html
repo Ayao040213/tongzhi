@@ -206,6 +206,23 @@
   .game-view.pfs .pursuit-ball{ width:60px; height:60px; }
   .game-view.pfs .pursuit-timer{ position:fixed; top:14px; left:50%; transform:translateX(-50%); z-index:30; color:#fff; font-size:24px; text-shadow:0 1px 4px rgba(0,0,0,.6); }
   .game-view.pfs .small-note{ display:none; }
+
+  /* ============ 线上训练 · 哈特表（放射状周边视野表） ============ */
+  .hart-timer{ text-align:center; font-size:22px; font-weight:700; color:var(--primary); margin:10px 0 4px; letter-spacing:1px; }
+  .hart-target{ text-align:center; font-size:19px; font-weight:700; color:var(--primary-dark); margin:0 0 6px; }
+  .hart-area{ position:relative; height:min(72vh,720px); min-height:460px; background:linear-gradient(180deg,#eaf4f7,#f4f9fb); border-radius:16px; overflow:hidden; margin:10px 0; box-shadow:inset 0 2px 10px rgba(20,60,80,.06); }
+  .hart-center{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:18px; height:18px; border-radius:50%; background:#e05050; z-index:2; box-shadow:0 0 0 7px rgba(224,80,80,.16), 0 0 18px rgba(224,80,80,.45); }
+  .hart-center::before{ content:''; position:absolute; left:50%; top:50%; width:34px; height:2px; background:rgba(224,80,80,.55); transform:translate(-50%,-50%); }
+  .hart-center::after{ content:''; position:absolute; left:50%; top:50%; width:2px; height:34px; background:rgba(224,80,80,.55); transform:translate(-50%,-50%); }
+  .hart-char{ position:absolute; transform:translate(-50%,-50%); font-weight:700; color:var(--text); cursor:pointer; user-select:none; line-height:1; }
+  .hart-char:hover{ color:var(--primary); }
+  .hart-char.hit{ color:var(--success); }
+  .hart-char.wrong{ color:var(--bad); }
+  .game-view.pfs .hart-area{ position:fixed; inset:0; height:100vh; min-height:0; margin:0; border-radius:0; box-shadow:none; }
+  .game-view.pfs .hart-timer{ position:fixed; top:14px; left:50%; transform:translateX(-50%); z-index:30; color:#fff; font-size:24px; text-shadow:0 1px 4px rgba(0,0,0,.6); }
+  .game-view.pfs .hart-target{ position:fixed; top:52px; left:50%; transform:translateX(-50%); z-index:30; color:#fff; font-size:20px; text-shadow:0 1px 4px rgba(0,0,0,.6); }
+  .game-view.pfs .hart-char{ color:#fff; }
+  .game-view.pfs .hart-char:hover{ color:var(--primary); }
 </style>
 </head>
 <body>
@@ -552,7 +569,8 @@
       { key: 'marsden', label: '马斯登球', icon: '🎾', desc: '三段训练视频' },
       { key: 'peripheral', label: '周边训练', icon: '🎯', desc: '命中次数 + 照片/视频' },
       { key: 'custom', label: '自定义训练', icon: '📌', desc: '教程回传照片' },
-      { key: 'pursuit', label: '追视小球', icon: '👀', desc: '眼动训练打卡' }
+      { key: 'pursuit', label: '追视小球', icon: '👀', desc: '眼动训练打卡' },
+      { key: 'hart', label: '哈特表', icon: '🎯', desc: '周边视野训练' }
     ];
     for (var i = 0; i < types.length; i++) {
       var t = types[i];
@@ -571,7 +589,7 @@
     state.childId = cid;
     var res = await sb.from('children').select('name').eq('id', cid).single();
     var cname = res.data ? res.data.name : '';
-    var typeLabel = type === 'eye' ? '眼位照' : (type === 'marsden' ? '马斯登球' : (type === 'custom' ? '自定义训练' : (type === 'pursuit' ? '追视小球' : '周边训练')));
+    var typeLabel = type === 'eye' ? '眼位照' : (type === 'marsden' ? '马斯登球' : (type === 'custom' ? '自定义训练' : (type === 'pursuit' ? '追视小球' : (type === 'hart' ? '哈特表' : '周边训练'))));
     var c = $('content');
     c.innerHTML = '<h2 class="page-title">' + esc(cname) + ' · ' + typeLabel + '</h2>' +
       '<div id="rec-list"></div>' +
@@ -594,6 +612,7 @@
         var aL = (d.amp != null) ? ('摆幅 ' + d.amp + '%') : '';
         desc = '追视小球 · ' + tL + ' · ' + sL + (aL ? ' · ' + aL : '') + ' · ' + Math.round((d.duration || 0) / 60) + ' 分钟';
       }
+      else if (r.type === 'hart') desc = '哈特表 · 找对 ' + (d.correct || 0) + ' · 误点 ' + (d.wrong || 0) + ' · ' + Math.round((d.duration || 0) / 60) + ' 分钟';
       else desc = r.type;
       var html = '<div class="list-item"><div><div class="t">' + esc(desc) + '</div>' +
         '<div class="s">' + fmtTime(r.created_at) + '</div>';
@@ -651,7 +670,8 @@
 
   // 线上训练游戏（大板块，只视训师可见；通过处方布置给家长后，家长才能在大屏上玩）
   var GAMES = [
-    { key: 'pursuit', title: '追视小球', icon: '👀', desc: '平滑追视训练：眼球跟随移动小球', param: '平滑追视 · 电脑/大屏 · 时长/球速/轨迹可调' }
+    { key: 'pursuit', title: '追视小球', icon: '👀', desc: '平滑追视训练：眼球跟随移动小球', param: '平滑追视 · 电脑/大屏 · 时长/球速/轨迹可调' },
+    { key: 'hart', title: '哈特表', icon: '🎯', desc: '周边视野训练：注视中心，识别放射状字符', param: '周边视野 · 电脑/大屏 · 字符随机扩散、由内到外变大' }
   ];
   function isGameProject(key) { return GAMES.some(function (g) { return g.key === key; }); }
   function rxProjectCard(p, checked) {
@@ -1109,6 +1129,7 @@
     $('game-view').classList.remove('pfs');
     document.body.style.overflow = '';
     if (pursuit.running) { pursuit.running = false; if (pursuit.raf) { cancelAnimationFrame(pursuit.raf); pursuit.raf = null; } }
+    if (hart.running) { hart.running = false; if (hart.raf) { cancelAnimationFrame(hart.raf); hart.raf = null; } }
     stopSiren();
     home();
   }
@@ -1345,13 +1366,197 @@
     closeGame();
   }
 
+  // ---------- 线上训练 · 哈特表（放射状周边视野表） ----------
+  var hart = { cid: null, cname: '', preview: false, dur: 180, charset: 'mix', perDir: 4, chars: [], target: '', correct: 0, wrong: 0, elapsed: 0, running: false, startedAt: 0, raf: null };
+
+  function hartCharset(type) {
+    if (type === 'digit') return '0123456789'.split('');
+    if (type === 'letter') return 'ABCDEFGHJKLMNPQRSTUVWXYZ'.split('');
+    return '0123456789ABCDEFGHJKLMNPQRSTUVWXYZ'.split('');
+  }
+
+  function buildHart() {
+    var area = $('hart-area');
+    if (!area) return;
+    var W = area.clientWidth, H = area.clientHeight;
+    if (!W || !H) return;
+    var cx = W / 2, cy = H / 2;
+    var set = hartCharset(hart.charset);
+    var dirs = [0, 45, 90, 135, 180, 225, 270, 315];
+    var n = hart.perDir;
+    var R = Math.min(W, H) / 2;
+    var rInner = R * 0.14, rOuter = R * 0.80;
+    var fsInner = 18, fsOuter = 44;
+    hart.chars = [];
+    for (var d = 0; d < dirs.length; d++) {
+      var ang = dirs[d] * Math.PI / 180;
+      for (var i = 0; i < n; i++) {
+        var t = n === 1 ? 0 : i / (n - 1);
+        var r = rInner + (rOuter - rInner) * t;
+        var fs = fsInner + (fsOuter - fsInner) * t;
+        var x = cx + Math.cos(ang) * r;
+        var y = cy + Math.sin(ang) * r;
+        var ch = set[Math.floor(Math.random() * set.length)];
+        hart.chars.push({ ch: ch, x: x, y: y, fs: fs });
+      }
+    }
+    var html = '<div class="hart-center"></div>';
+    for (var k = 0; k < hart.chars.length; k++) {
+      var c = hart.chars[k];
+      html += '<span class="hart-char" data-idx="' + k + '" style="left:' + Math.round(c.x) + 'px; top:' + Math.round(c.y) + 'px; font-size:' + Math.round(c.fs) + 'px;">' + c.ch + '</span>';
+    }
+    area.innerHTML = html;
+    var spans = area.querySelectorAll('.hart-char');
+    for (var j = 0; j < spans.length; j++) {
+      spans[j].onclick = function () { onHartClick(parseInt(this.getAttribute('data-idx'), 10), this); };
+    }
+    pickHartTarget();
+  }
+
+  function pickHartTarget() {
+    if (!hart.chars.length) return;
+    hart.target = hart.chars[Math.floor(Math.random() * hart.chars.length)].ch;
+    var t = $('hart-target');
+    if (t) t.textContent = '🔍 找到：' + hart.target;
+  }
+
+  function onHartClick(idx, el) {
+    if (!hart.running) return;
+    if (hart.chars[idx].ch === hart.target) {
+      hart.correct++;
+      el.classList.add('hit');
+      setTimeout(function () { el.classList.remove('hit'); }, 180);
+      pickHartTarget();
+    } else {
+      hart.wrong++;
+      el.classList.add('wrong');
+      setTimeout(function () { el.classList.remove('wrong'); }, 180);
+    }
+  }
+
+  function hartTick(now) {
+    if (!hart.running) return;
+    var timer = $('hart-timer');
+    if (!timer) { hart.running = false; return; }
+    hart.elapsed = (now - hart.startedAt) / 1000;
+    if (hart.elapsed >= hart.dur) { endHart(); return; }
+    var remain = Math.max(0, hart.dur - hart.elapsed);
+    var mm = Math.floor(remain / 60), ss = Math.floor(remain % 60);
+    timer.textContent = '剩余 ' + (mm < 10 ? '0' + mm : mm) + ':' + (ss < 10 ? '0' + ss : ss);
+    hart.raf = requestAnimationFrame(hartTick);
+  }
+
+  function endHart() {
+    if (!hart.running) return;
+    hart.running = false;
+    if (hart.raf) { cancelAnimationFrame(hart.raf); hart.raf = null; }
+    $('game-view').classList.remove('pfs');
+    var actual = Math.round(hart.elapsed);
+    var g = $('game-body');
+    var title = hart.preview ? '试玩结束 ✅' : '训练完成 ✅';
+    var action = hart.preview
+      ? '<button class="btn btn-ghost" id="p-close">🔙 返回</button>'
+      : '<button class="btn btn-primary" id="hart-checkin">打卡上传给视训师</button>';
+    g.innerHTML = '<div class="game-inner">' +
+      '<h2 class="page-title">' + title + '</h2>' +
+      '<div class="card" style="line-height:2.1;">' +
+        '<div>找对：' + hart.correct + ' 个</div>' +
+        '<div>误点：' + hart.wrong + ' 个</div>' +
+        '<div>用时：' + Math.floor(actual / 60) + ' 分 ' + (actual % 60) + ' 秒</div>' +
+      '</div>' +
+      action + '</div>';
+    if (hart.preview) $('p-close').onclick = closeGame;
+    else $('hart-checkin').onclick = checkInHart;
+  }
+
+  async function checkInHart() {
+    if (hart.preview || !hart.cid) { closeGame(); return; }
+    var btn = $('hart-checkin');
+    btn.disabled = true; btn.textContent = '上传中…';
+    var res = await sb.from('records').insert({
+      child_id: hart.cid,
+      type: 'hart',
+      data: { duration: hart.dur, charset: hart.charset, per_dir: hart.perDir, correct: hart.correct, wrong: hart.wrong, actual: Math.round(hart.elapsed) }
+    });
+    if (res.error) { alert('打卡失败：' + res.error.message); btn.disabled = false; btn.textContent = '打卡上传给视训师'; return; }
+    alert('打卡成功！视训师能看到啦');
+    closeGame();
+  }
+
+  function openHartConfig(cid, cname, preview) {
+    if (!preview) state.childId = cid;
+    hart.cid = cid; hart.cname = cname; hart.preview = !!preview;
+    hart.dur = 180; hart.charset = 'mix'; hart.perDir = 4;
+    hart.correct = 0; hart.wrong = 0; hart.target = '';
+    var g = $('game-body');
+    g.innerHTML = '<div class="game-wide">' +
+      '<div class="hart-timer" id="hart-timer">--:--</div>' +
+      '<div class="hart-target" id="hart-target">🔍 找到：</div>' +
+      '<div class="hart-area" id="hart-area"></div>' +
+      '<div class="small-note">眼睛盯住中心红点，用周边视野找目标并点击</div>' +
+      '<div class="p-ctrl dock-h" id="p-ctrl" style="left:50%; bottom:16px; transform:translateX(-50%);">' +
+        '<div class="p-ctrl-head" id="p-ctrl-head"><span class="p-ctrl-title">🎛️ 控制台</span><button class="p-ctrl-hide" id="p-ctrl-hide">—</button></div>' +
+        '<div class="p-ctrl-body">' +
+          '<div class="p-ctrl-item"><div class="p-ctrl-item-label">⏱ 时长</div><div class="stage-tabs" id="h-dur">' +
+            '<button class="stage-tab" data-v="60">1分</button><button class="stage-tab active" data-v="180">3分</button><button class="stage-tab" data-v="300">5分</button></div></div>' +
+          '<div class="p-ctrl-item"><div class="p-ctrl-item-label">🔤 字符</div><div class="stage-tabs" id="h-set">' +
+            '<button class="stage-tab active" data-v="mix">数字+字母</button><button class="stage-tab" data-v="digit">纯数字</button><button class="stage-tab" data-v="letter">纯字母</button></div></div>' +
+          '<div class="p-ctrl-item"><div class="p-ctrl-item-label">📏 每方向</div><div class="stage-tabs" id="h-per">' +
+            '<button class="stage-tab" data-v="3">3个</button><button class="stage-tab active" data-v="4">4个</button><button class="stage-tab" data-v="5">5个</button></div></div>' +
+        '</div></div>' +
+      '<button class="p-ctrl-toggle" id="p-ctrl-toggle" style="display:none;">🎛️ 控制台</button>' +
+      '<div class="p-act">' +
+        '<button class="btn btn-ghost" id="p-fs">🔲 放大全屏</button>' +
+        '<button class="btn btn-ghost" id="p-stop">⏹ 结束训练</button>' +
+      '</div></div>';
+
+    bindHartGroup('h-dur', 'dur', parseInt);
+    bindHartGroup('h-set', 'charset');
+    bindHartGroup('h-per', 'perDir', parseInt);
+    $('p-stop').onclick = endHart;
+    $('p-fs').onclick = toggleHartFs;
+    $('p-ctrl-hide').onclick = hideCtrl;
+    $('p-ctrl-toggle').onclick = showCtrl;
+    initCtrlDrag();
+
+    openGame();
+    hart.elapsed = 0;
+    hart.startedAt = performance.now();
+    hart.running = true;
+    requestAnimationFrame(function () { buildHart(); });
+    hart.raf = requestAnimationFrame(hartTick);
+  }
+
+  function bindHartGroup(id, key, parse) {
+    var btns = $(id).querySelectorAll('.stage-tab');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].onclick = function () {
+        for (var j = 0; j < btns.length; j++) btns[j].classList.toggle('active', btns[j] === this);
+        var v = this.getAttribute('data-v');
+        hart[key] = parse ? parse(v) : v;
+        if (key === 'dur') return;
+        hart.correct = 0; hart.wrong = 0; hart.target = '';
+        buildHart();
+      };
+    }
+  }
+
+  function toggleHartFs() {
+    var on = $('game-view').classList.toggle('pfs');
+    var btn = $('p-fs');
+    if (btn) btn.textContent = on ? '🔳 退出全屏' : '🔲 放大全屏';
+    setTimeout(buildHart, 40);
+  }
+
   // 从处方启动线上训练游戏（家长端，关联孩子、可打卡）
   function launchGame(key, cid, cname) {
     if (key === 'pursuit') openPursuitConfig(cid, cname);
+    else if (key === 'hart') openHartConfig(cid, cname);
   }
   // 视训师试玩/预览游戏（不关联孩子、结束不打卡）
   function previewGame(key) {
     if (key === 'pursuit') openPursuitConfig(null, '试玩模式', true);
+    else if (key === 'hart') openHartConfig(null, '试玩模式', true);
   }
 
   // ---------- 家长端 ----------
