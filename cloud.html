@@ -218,7 +218,7 @@
   .hart-char.on{ color:#e05050; transform:translate(-50%,-50%) scale(1.3); text-shadow:0 0 8px rgba(224,80,80,.55); }
   .hart-judge{ display:flex; gap:12px; margin:12px 0 4px; }
   .hart-judge .btn{ flex:1; margin-top:0; padding:14px 0; font-size:16px; font-weight:700; border-radius:14px; }
-  .game-view.pfs .hart-area{ position:fixed; inset:0; height:100vh; min-height:0; margin:0; border-radius:0; box-shadow:none; }
+  .game-view.pfs .hart-area{ position:fixed; inset:0; height:100vh; min-height:0; margin:0; border-radius:0; box-shadow:none; background:#000; }
   .game-view.pfs .hart-timer{ position:fixed; top:14px; left:50%; transform:translateX(-50%); z-index:30; color:#fff; font-size:24px; text-shadow:0 1px 4px rgba(0,0,0,.6); }
   .game-view.pfs .hart-target{ position:fixed; top:52px; left:50%; transform:translateX(-50%); z-index:30; color:#fff; font-size:20px; text-shadow:0 1px 4px rgba(0,0,0,.6); }
   .game-view.pfs .hart-char{ color:#fff; }
@@ -1367,12 +1367,18 @@
   }
 
   // ---------- 线上训练 · 哈特表（放射状周边视野表） ----------
-  var hart = { cid: null, cname: '', preview: false, dur: 180, charset: 'mix', perDir: 4, chars: [], target: '', targetIdx: -1, correct: 0, wrong: 0, elapsed: 0, running: false, startedAt: 0, raf: null };
+  var hart = { cid: null, cname: '', preview: false, dur: 180, charset: 'mix', dirMode: 'all', perDir: 4, chars: [], target: '', targetIdx: -1, correct: 0, wrong: 0, elapsed: 0, running: false, startedAt: 0, raf: null };
 
   function hartCharset(type) {
     if (type === 'digit') return '0123456789'.split('');
     if (type === 'letter') return 'ABCDEFGHJKLMNPQRSTUVWXYZ'.split('');
     return '0123456789ABCDEFGHJKLMNPQRSTUVWXYZ'.split('');
+  }
+  function hartDirs(mode) {
+    if (mode === 'v') return [90, 270];                 // 正上正下
+    if (mode === 'h') return [0, 180];                  // 正左正右
+    if (mode === 'diag') return [45, 135, 225, 315];    // 斜上斜下
+    return [0, 45, 90, 135, 180, 225, 270, 315];        // 全部 8 方向
   }
 
   function buildHart() {
@@ -1382,7 +1388,7 @@
     if (!W || !H) return;
     var cx = W / 2, cy = H / 2;
     var set = hartCharset(hart.charset);
-    var dirs = [0, 45, 90, 135, 180, 225, 270, 315];
+    var dirs = hartDirs(hart.dirMode);
     var n = hart.perDir;
     var R = Math.min(W, H) / 2;
     var rInner = R * 0.14, rOuter = R * 0.80;
@@ -1496,8 +1502,11 @@
             '<button class="stage-tab" data-v="60">1分</button><button class="stage-tab active" data-v="180">3分</button><button class="stage-tab" data-v="300">5分</button></div></div>' +
           '<div class="p-ctrl-item"><div class="p-ctrl-item-label">🔤 字符</div><div class="stage-tabs" id="h-set">' +
             '<button class="stage-tab active" data-v="mix">数字+字母</button><button class="stage-tab" data-v="digit">纯数字</button><button class="stage-tab" data-v="letter">纯字母</button></div></div>' +
+          '<div class="p-ctrl-item"><div class="p-ctrl-item-label">🧭 方向</div><div class="stage-tabs" id="h-dir">' +
+            '<button class="stage-tab active" data-v="all">全部</button><button class="stage-tab" data-v="v">上下</button><button class="stage-tab" data-v="h">左右</button><button class="stage-tab" data-v="diag">斜向</button></div></div>' +
           '<div class="p-ctrl-item"><div class="p-ctrl-item-label">📏 每方向</div><div class="stage-tabs" id="h-per">' +
             '<button class="stage-tab" data-v="3">3个</button><button class="stage-tab active" data-v="4">4个</button><button class="stage-tab" data-v="5">5个</button></div></div>' +
+          '<div class="p-ctrl-item"><div class="p-ctrl-item-label">🔄 刷新</div><button class="btn btn-primary btn-small" id="h-refresh">重新打乱字符</button></div>' +
         '</div></div>' +
       '<button class="p-ctrl-toggle" id="p-ctrl-toggle" style="display:none;">🎛️ 控制台</button>' +
       '<div class="p-act">' +
@@ -1507,7 +1516,9 @@
 
     bindHartGroup('h-dur', 'dur', parseInt);
     bindHartGroup('h-set', 'charset');
+    bindHartGroup('h-dir', 'dirMode');
     bindHartGroup('h-per', 'perDir', parseInt);
+    $('h-refresh').onclick = function () { buildHart(); };
     $('p-stop').onclick = endHart;
     $('p-fs').onclick = toggleHartFs;
     $('hart-yes').onclick = function () { judgeHart(true); };
