@@ -43,6 +43,7 @@
   .card{ background:var(--card); margin:12px 0; border-radius:16px; padding:16px 18px; box-shadow:0 2px 10px rgba(20,60,80,.06); }
   .page-title{ font-size:17px; font-weight:700; margin:0; padding:18px 0 2px; }
   .page-sub{ font-size:13px; color:var(--muted); padding:2px 0 0; margin:0; }
+  .sect{ font-size:15px; font-weight:700; margin:20px 0 6px; color:var(--text); }
   .card h1{ font-size:20px; margin:0 0 4px; }
   .card h2{ font-size:16px; margin:0 0 12px; }
   .sub{ color:var(--muted); font-size:13px; margin:0 0 16px; }
@@ -66,6 +67,9 @@
   /* ============ 提示 ============ */
   .msg{ margin-top:12px; font-size:14px; white-space:pre-wrap; }
   .msg.err{ color:var(--bad); } .msg.ok{ color:var(--success); }
+  .toast{ position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(16px); background:var(--primary-dark); color:#fff; padding:12px 18px; border-radius:12px; font-size:14px; max-width:88vw; box-shadow:0 8px 24px rgba(20,60,80,.28); opacity:0; transition:opacity .25s, transform .25s; z-index:9999; pointer-events:none; text-align:center; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.err{ background:var(--bad); }
 
   /* ============ 训练处方 ============ */
   textarea{ width:100%; padding:12px; font-size:15px; color:var(--text); border:1px solid var(--line); border-radius:12px; background:#fff; min-height:90px; resize:vertical; font-family:inherit; }
@@ -88,11 +92,13 @@
   .list-item .icon{ width:42px; height:42px; border-radius:12px; background:#fff2e0; display:flex; align-items:center; justify-content:center; font-size:21px; flex-shrink:0; }
   .chev{ font-size:22px; color:#c0ccd2; flex-shrink:0; }
   .code{ font-family:monospace; font-size:16px; letter-spacing:2px; background:#eef4f6; padding:2px 10px; border-radius:8px; color:var(--primary); }
+  .code-copy{ margin-left:6px; border:none; background:none; color:var(--primary); font-size:12px; padding:2px 4px; cursor:pointer; text-decoration:underline; }
   .empty{ color:var(--muted); font-size:14px; text-align:center; padding:24px 16px; }
   .row2{ display:flex; gap:10px; }
   .row2 > div{ flex:1; }
   .linkbtn{ background:none; border:none; color:var(--primary); font-size:14px; cursor:pointer; padding:0; }
   .small-note{ font-size:12px; color:var(--muted); margin-top:18px; text-align:center; }
+  .privacy-note{ font-size:12px; color:var(--muted); margin-top:14px; text-align:center; background:#eef4f6; border-radius:10px; padding:8px 12px; }
 
   /* ============ 回传记录里的图片/视频 ============ */
   .rec-media{ margin-top:10px; }
@@ -171,7 +177,7 @@
   .p-ctrl-head{ display:flex; align-items:center; gap:8px; padding:8px 12px; background:linear-gradient(135deg,var(--primary),var(--primary-dark)); color:#fff; cursor:grab; user-select:none; touch-action:none; }
   .p-ctrl-head:active{ cursor:grabbing; }
   .p-ctrl-title{ font-size:13px; font-weight:700; flex:1; }
-  .p-ctrl-hide{ border:none; background:rgba(255,255,255,.22); color:#fff; width:26px; height:26px; border-radius:8px; cursor:pointer; font-size:15px; line-height:1; flex-shrink:0; }
+  .p-ctrl-hide{ border:none; background:rgba(255,255,255,.22); color:#fff; min-width:44px; height:44px; border-radius:10px; cursor:pointer; font-size:18px; line-height:1; flex-shrink:0; padding:0; }
   .p-ctrl-body{ padding:12px; display:flex; gap:12px; }
   .p-ctrl.dock-h .p-ctrl-body{ flex-direction:row; flex-wrap:wrap; }
   .p-ctrl.dock-v .p-ctrl-body{ flex-direction:column; }
@@ -185,7 +191,8 @@
   .p-ctrl-toggle{ position:fixed; left:16px; top:16px; z-index:60; border:none; background:var(--primary); color:#fff; padding:9px 16px; border-radius:999px; font-size:13px; font-weight:600; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.22); }
   /* 结束/全屏 动作按钮（右下角常驻） */
   .p-act{ position:fixed; right:16px; bottom:16px; z-index:60; display:flex; flex-direction:column; gap:8px; }
-  .p-act .btn{ margin-top:0; width:auto; padding:10px 18px; font-size:14px; border-radius:999px; background:#fff; border:1px solid var(--line); box-shadow:0 4px 14px rgba(0,0,0,.18); }
+  .p-act .btn{ margin-top:0; width:auto; padding:10px 18px; font-size:14px; border-radius:999px; background:#fff; border:1px solid var(--line); box-shadow:0 4px 14px rgba(0,0,0,.18); min-height:44px; }
+  .p-ctrl .btn-small, .p-ctrl .stage-tab{ min-height:44px; }
 
   /* ============ 训练游戏全屏层（电脑/大屏） ============ */
   .game-view{ position:fixed; inset:0; background:var(--bg); z-index:9990; display:none; flex-direction:column; }
@@ -327,6 +334,16 @@
     });
   }
   function fmtTime(iso) { return new Date(iso).toLocaleString('zh-CN'); }
+  // 客户端搜索：按输入框内容过滤容器内的 .list-item（匹配 data-name）
+  function filterByText(inputId, containerSelector) {
+    var inp = $(inputId);
+    var q = (inp ? inp.value : '').trim().toLowerCase();
+    var items = document.querySelectorAll(containerSelector + ' .list-item');
+    for (var i = 0; i < items.length; i++) {
+      var name = (items[i].getAttribute('data-name') || '').toLowerCase();
+      items[i].style.display = (!q || name.indexOf(q) >= 0) ? '' : 'none';
+    }
+  }
   // 把 Supabase 英文错误映射成中文可执行文案
   function errText(msg) {
     msg = String(msg || '');
@@ -350,6 +367,28 @@
   function setStatus(text, isError) {
     var el = $('upload-status');
     if (el) { el.textContent = text; el.className = 'msg ' + (isError ? 'err' : 'ok'); }
+  }
+  // 非阻断全局提示条（替代原生 alert）
+  function toast(text, isError) {
+    var t = document.createElement('div');
+    t.className = 'toast' + (isError ? ' err' : '');
+    t.textContent = text;
+    document.body.appendChild(t);
+    requestAnimationFrame(function () { t.classList.add('show'); });
+    setTimeout(function () { t.classList.remove('show'); setTimeout(function () { t.remove(); }, 300); }, 2600);
+  }
+  // 复制到剪贴板（邀请码等）
+  function copyText(text, silent) {
+    var done = function () { if (!silent) toast('已复制：' + text); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done);
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch (e) { if (!silent) toast('复制失败，请手动记下', true); }
+      ta.remove();
+    }
   }
   // 把图片缩小尺寸 + 降画质，转成 jpg，让上传/加载更快
   function compressImage(file, maxW, quality) {
@@ -508,34 +547,38 @@
   async function renderTherapistHome() {
     renderTopbar();
     var c = $('content');
-    c.innerHTML = '<h2 class="page-title">我的家庭</h2>';
+    var html = '<h2 class="page-title">我的家庭</h2><input id="family-search" placeholder="搜索家庭名" style="margin:8px 0 4px;">';
     var res = await sb.from('families').select('*').order('created_at', { ascending: false });
-    if (res.error) { c.innerHTML += '<div class="empty">读取失败：' + esc(errText(res.error.message)) + '</div>'; return; }
-    if (!res.data.length) { c.innerHTML += '<div class="empty">还没有家庭，先创建一个</div>'; }
+    if (res.error) { c.innerHTML = html + '<div class="empty">读取失败：' + esc(errText(res.error.message)) + '</div>'; return; }
+    if (!res.data.length) { html += '<div class="empty">还没有家庭，先创建一个</div>'; }
     else {
-      c.innerHTML += '<div class="grid-auto">';
+      html += '<div class="grid-auto">';
       res.data.forEach(function (f) {
-        c.innerHTML +=
-          '<div class="list-item">' +
+        html +=
+          '<div class="list-item" data-name="' + esc(f.name || '未命名') + '">' +
             '<span class="icon">👪</span>' +
             '<div><div class="t">' + esc(f.name || '（未命名）') + '</div>' +
-            '<div class="s">邀请码：<span class="code">' + esc(f.invite_code) + '</span></div></div>' +
+            '<div class="s">邀请码：<span class="code">' + esc(f.invite_code) + '</span>' +
+            '<button class="code-copy" onclick="copyText(\'' + f.invite_code + '\')">复制</button></div></div>' +
             '<button class="btn btn-primary btn-small" onclick="openFamily(\'' + f.id + '\')">进入</button>' +
           '</div>';
       });
-      c.innerHTML += '</div>';
+      html += '</div>';
     }
-    c.innerHTML +=
+    html +=
       '<div class="card" style="margin-top:16px;"><h2>新建家庭</h2>' +
       '<input id="family-name" placeholder="家庭名，如：小明家">' +
       '<button class="btn btn-primary" onclick="createFamily()">创建家庭</button></div>';
+    c.innerHTML = html;
+    $('family-search').oninput = function () { filterByText('family-search', '#content .grid-auto'); };
   }
   async function createFamily() {
     var name = $('family-name').value.trim();
-    if (!name) { alert('请填家庭名'); return; }
+    if (!name) { toast('请填家庭名', true); return; }
     var res = await sb.from('families').insert({ name: name, therapist_id: state.user.id }).select();
-    if (res.error) { alert('创建失败：' + errText(res.error.message)); return; }
-    alert('创建成功！邀请码是 ' + res.data[0].invite_code);
+    if (res.error) { toast('创建失败：' + errText(res.error.message), true); return; }
+    copyText(res.data[0].invite_code, true);
+    toast('创建成功！邀请码 ' + res.data[0].invite_code + '（已复制，可直接发给家长）');
     renderTherapistHome();
   }
   async function openFamily(fid) {
@@ -543,29 +586,32 @@
     var res = await sb.from('families').select('name').eq('id', fid).single();
     var fname = res.data ? res.data.name : '';
     var c = $('content');
-    c.innerHTML = '<h2 class="page-title">家庭：' + esc(fname) + '</h2><div id="child-list" class="grid-auto"></div>';
+    c.innerHTML = '<h2 class="page-title">家庭：' + esc(fname) + '</h2>' +
+      '<input id="child-search" placeholder="搜索孩子名" style="margin:8px 0 4px;">' +
+      '<div id="child-list" class="grid-auto"></div>';
     c.innerHTML +=
       '<div class="card" style="margin-top:14px;"><h2>添加孩子</h2>' +
       '<div class="row2"><div><label>姓名</label><input id="child-name" placeholder="孩子名字"></div>' +
       '<div><label>年龄</label><input id="child-age" type="number" placeholder="6"></div></div>' +
       '<button class="btn btn-primary" onclick="addChild()">添加孩子</button></div>' +
       '<button class="btn btn-ghost" onclick="home()">返回</button>';
+    $('child-search').oninput = function () { filterByText('child-search', '#child-list'); };
     var cr = await sb.from('children').select('*').eq('family_id', fid).order('created_at');
     var box = $('child-list');
     if (cr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(cr.error.message)) + '</div>'; return; }
     if (!cr.data.length) box.innerHTML = '<div class="empty">这个家庭还没有孩子</div>';
     cr.data.forEach(function (k) {
       box.innerHTML +=
-        '<div class="list-item"><span class="icon">👶</span><div><div class="t">' + esc(k.name) + '</div>' +
+        '<div class="list-item" data-name="' + esc(k.name) + '"><span class="icon">👶</span><div><div class="t">' + esc(k.name) + '</div>' +
         '<div class="s">' + (k.age ? (k.age + ' 岁') : '') + '</div></div>' +
         '<button class="btn btn-primary btn-small" onclick="openChild(\'' + k.id + '\')">档案</button></div>';
     });
   }
   async function addChild() {
     var name = $('child-name').value.trim(), age = $('child-age').value;
-    if (!name) { alert('请填孩子姓名'); return; }
+    if (!name) { toast('请填孩子姓名', true); return; }
     var res = await sb.from('children').insert({ family_id: state.familyId, name: name, age: age ? parseInt(age) : null }).select();
-    if (res.error) { alert('添加失败：' + errText(res.error.message)); return; }
+    if (res.error) { toast('添加失败：' + errText(res.error.message), true); return; }
     openFamily(state.familyId);
   }
   async function openChild(cid) {
@@ -691,7 +737,7 @@
       if (paths.length) { await sb.storage.from('media').remove(paths); }
     }
     var res = await sb.from('records').delete().eq('id', recId);
-    if (res.error) { alert('删除失败：' + errText(res.error.message)); return; }
+    if (res.error) { toast('删除失败：' + errText(res.error.message), true); return; }
     openChildType(state.childId, type);
   }
 
@@ -752,7 +798,7 @@
   async function delRx(id) {
     if (!confirm('确定删除这张处方？')) return;
     var res = await sb.from('prescriptions').delete().eq('id', id);
-    if (res.error) { alert('删除失败：' + errText(res.error.message)); return; }
+    if (res.error) { toast('删除失败：' + errText(res.error.message), true); return; }
     renderRxList();
   }
 
@@ -794,7 +840,7 @@
 
   function genRx() {
     var draft = collectRxDraft();
-    if (!draft.projects.length) { alert('请至少勾选一个训练项目'); return; }
+    if (!draft.projects.length) { toast('请至少勾选一个训练项目', true); return; }
     var p = { title: todayStrCN(), items: JSON.stringify(draft.projects), note: draft.note };
     $('rx-preview').textContent = rxText(p, state.childName);
     $('rx-preview').style.display = 'block';
@@ -803,12 +849,12 @@
 
   async function saveRx() {
     var draft = collectRxDraft();
-    if (!draft.projects.length) { alert('请至少勾选一个训练项目'); return; }
+    if (!draft.projects.length) { toast('请至少勾选一个训练项目', true); return; }
     var res = await sb.from('prescriptions').insert({
       child_id: state.childId, title: todayStrCN(), items: JSON.stringify(draft.projects), note: draft.note
     });
-    if (res.error) { alert('保存失败：' + errText(res.error.message)); return; }
-    alert('处方已保存，家长能看到啦！');
+    if (res.error) { toast('保存失败：' + errText(res.error.message), true); return; }
+    toast('处方已保存，家长能看到啦！');
     openChild(state.childId);
   }
 
@@ -835,7 +881,7 @@
 
   async function viewRx(id) {
     var res = await sb.from('prescriptions').select('*').eq('id', id).single();
-    if (res.error || !res.data) { alert('读不到这张处方'); return; }
+    if (res.error || !res.data) { toast('读不到这张处方', true); return; }
     var p = res.data;
     var cname = '';
     var cr = await sb.from('children').select('name').eq('id', p.child_id).single();
@@ -890,7 +936,7 @@
   async function delCustom(id) {
     if (!confirm('确定删除这个自定义训练？')) return;
     var res = await sb.from('custom_projects').delete().eq('id', id);
-    if (res.error) { alert('删除失败：' + errText(res.error.message)); return; }
+    if (res.error) { toast('删除失败：' + errText(res.error.message), true); return; }
     renderCustomList();
   }
 
@@ -964,7 +1010,7 @@
 
   async function saveCustom() {
     var name = $('custom-name').value.trim();
-    if (!name) { alert('请先填训练名称'); return; }
+    if (!name) { toast('请先填训练名称', true); return; }
     var desc = $('custom-desc').value.trim();
     var btn = $('custom-save');
     btn.disabled = true; btn.textContent = '保存中…';
@@ -973,7 +1019,7 @@
     var projId = customDraftId;
     if (!projId) {
       var ins = await sb.from('custom_projects').insert({ child_id: state.childId, title: name, content: desc, media: [] }).select();
-      if (ins.error) { alert('保存失败：' + errText(ins.error.message)); btn.disabled = false; btn.textContent = '保存并布置'; return; }
+      if (ins.error) { toast('保存失败：' + errText(ins.error.message), true); btn.disabled = false; btn.textContent = '保存并布置'; return; }
       projId = ins.data[0].id;
     }
 
@@ -988,14 +1034,14 @@
       if (m.type === 'image') { f = await compressImage(f, 1280, 0.7); ext = 'jpg'; }
       var path = state.childId + '/custom/' + projId + '/' + Date.now() + '_' + i + '.' + ext;
       var up = await sb.storage.from('media').upload(path, f);
-      if (up.error) { alert('素材上传失败：' + errText(up.error.message)); btn.disabled = false; btn.textContent = '保存并布置'; return; }
+      if (up.error) { toast('素材上传失败：' + errText(up.error.message), true); btn.disabled = false; btn.textContent = '保存并布置'; return; }
       finalMedia.push({ path: path, type: m.type });
     }
 
     // 3. 更新标题/内容/素材
     var upd = await sb.from('custom_projects').update({ title: name, content: desc, media: finalMedia }).eq('id', projId);
-    if (upd.error) { alert('保存失败：' + errText(upd.error.message)); btn.disabled = false; btn.textContent = '保存并布置'; return; }
-    alert('已保存，家长能看到啦！');
+    if (upd.error) { toast('保存失败：' + errText(upd.error.message), true); btn.disabled = false; btn.textContent = '保存并布置'; return; }
+    toast('已保存，家长能看到啦！');
     openChild(state.childId);
   }
 
@@ -1022,7 +1068,7 @@
   // 家长：训练详情 + 拍照回传进度
   async function viewCustomDetail(id) {
     var r = await sb.from('custom_projects').select('*').eq('id', id).single();
-    if (r.error || !r.data) { alert('读不到这个训练'); return; }
+    if (r.error || !r.data) { toast('读不到这个训练', true); return; }
     var p = r.data;
     state.customId = id;
     var c = $('content');
@@ -1090,10 +1136,10 @@
     file = await compressImage(file, 1280, 0.7);
     var path = state.childId + '/progress/' + Date.now() + '.jpg';
     var up = await sb.storage.from('media').upload(path, file, { contentType: 'image/jpeg' });
-    if (up.error) { alert('上传失败：' + errText(up.error.message)); return; }
+    if (up.error) { toast('上传失败：' + errText(up.error.message), true); return; }
     var ins = await sb.from('records').insert({ child_id: state.childId, type: 'custom', data: { custom_id: projId, custom_title: cname }, media: [path] });
-    if (ins.error) { alert('提交失败：' + errText(ins.error.message)); return; }
-    alert('回传成功，视训师能看到啦！');
+    if (ins.error) { toast('提交失败：' + errText(ins.error.message), true); return; }
+    toast('回传成功，视训师能看到啦！');
     await renderCustomProgress(projId);
   }
 
@@ -1166,6 +1212,13 @@
     if (hart.running) { hart.running = false; if (hart.raf) { cancelAnimationFrame(hart.raf); hart.raf = null; } }
     stopSiren();
     home();
+  }
+  function exitGame() {
+    if (!pursuit.running && !hart.running) { closeGame(); return; }
+    var g = pursuit.running ? pursuit : hart;
+    if (g.preview) { closeGame(); return; }
+    if (!confirm('确定退出训练吗？本次训练时长不会上传')) return;
+    closeGame();
   }
 
   function openPursuitConfig(cid, cname, preview) {
@@ -1381,8 +1434,8 @@
       type: 'pursuit',
       data: { speed: pursuit.speed, amp: pursuit.amp, trajectory: pursuit.traj, actual: Math.round(pursuit.elapsed) }
     });
-    if (res.error) { alert('打卡失败：' + errText(res.error.message)); btn.disabled = false; btn.textContent = '打卡上传给视训师'; return; }
-    alert('打卡成功！视训师能看到啦');
+    if (res.error) { toast('打卡失败：' + errText(res.error.message), true); btn.disabled = false; btn.textContent = '打卡上传给视训师'; return; }
+    toast('打卡成功！视训师能看到啦');
     closeGame();
   }
 
@@ -1497,8 +1550,8 @@
       type: 'hart',
       data: { charset: hart.charset, per_dir: hart.perDir, correct: hart.correct, wrong: hart.wrong, actual: Math.round(hart.elapsed) }
     });
-    if (res.error) { alert('打卡失败：' + errText(res.error.message)); btn.disabled = false; btn.textContent = '打卡上传给视训师'; return; }
-    alert('打卡成功！视训师能看到啦');
+    if (res.error) { toast('打卡失败：' + errText(res.error.message), true); btn.disabled = false; btn.textContent = '打卡上传给视训师'; return; }
+    toast('打卡成功！视训师能看到啦');
     closeGame();
   }
 
@@ -1606,20 +1659,20 @@
   }
   async function upgradeTherapist() {
     var code = $('upgrade-code').value.trim();
-    if (!code) { alert('请输入授权码'); return; }
+    if (!code) { toast('请输入授权码', true); return; }
     var r = await sb.rpc('register_therapist', { p_code: code });
-    if (r.error) { alert('升级失败：' + errText(r.error.message)); return; }
-    if (r.data === false) { alert('授权码错误，请核对后重试'); return; }
-    alert('升级成功，已成为视训师！');
+    if (r.error) { toast('升级失败：' + errText(r.error.message), true); return; }
+    if (r.data === false) { toast('授权码错误，请核对后重试', true); return; }
+    toast('升级成功，已成为视训师！');
     await loadProfile();
     home();
   }
   async function joinFamily() {
     var code = $('invite-code').value.trim();
-    if (!code) { alert('请输入邀请码'); return; }
+    if (!code) { toast('请输入邀请码', true); return; }
     var res = await sb.rpc('join_family', { p_code: code });
-    if (res.error) { alert('加入失败：' + errText(res.error.message)); return; }
-    alert('加入成功！');
+    if (res.error) { toast('加入失败：' + errText(res.error.message), true); return; }
+    toast('加入成功！');
     await loadProfile();
     renderParentFamily();
   }
@@ -1627,31 +1680,44 @@
     var c = $('content');
     var fid = state.profile.family_id;
     var fam = await sb.from('families').select('name').eq('id', fid).single();
-    c.innerHTML = '<h2 class="page-title">我的家庭' + (fam.data ? '：' + esc(fam.data.name) : '') + '</h2><div id="child-list"></div>';
     var cr = await sb.from('children').select('*').eq('family_id', fid).order('created_at');
+    var kids = cr.data || [];
+
+    // 顶部以「今天练什么」为主角：处方 + 自定义训练在前，孩子回传降到日常区
+    c.innerHTML =
+      '<h2 class="page-title">我的家庭' + (fam.data ? '：' + esc(fam.data.name) : '') + '</h2>' +
+      '<p class="page-sub">今天练什么，看下面视训师布置的任务 👇</p>' +
+      '<div class="sect">📋 今日训练 · 处方</div>' +
+      '<div id="rx-home-list"></div>' +
+      '<div class="sect">📌 自定义训练</div>' +
+      '<div id="custom-home-list"></div>' +
+      '<div class="sect">👶 孩子 · 日常回传</div>' +
+      '<p class="page-sub" style="margin-bottom:6px;">跟着教程做，拍照 / 录视频回传给视训师</p>' +
+      '<div id="child-list"></div>';
+
     var box = $('child-list');
-    if (cr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(cr.error.message)) + '</div>'; return; }
-    if (!cr.data.length) box.innerHTML = '<div class="empty">视训师还没有添加孩子，等等再来</div>';
-    var cols = '1fr 1fr 1fr';
-    cr.data.forEach(function (k) {
-      box.innerHTML +=
-        '<div class="list-item" style="flex-direction:column; align-items:stretch;">' +
-          '<div style="display:flex; align-items:center; gap:10px; flex:none;">' +
-            '<span class="icon">👶</span>' +
-            '<div><div class="t">' + esc(k.name) + '</div>' +
-            '<div class="s">' + (k.age ? (k.age + ' 岁') : '') + '</div></div>' +
-          '</div>' +
-          '<div style="display:grid; grid-template-columns:' + cols + '; gap:6px; margin-top:12px; flex:none;">' +
-            '<button class="btn btn-primary btn-small" onclick="openEyeForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">眼位照</button>' +
-            '<button class="btn btn-primary btn-small" onclick="openMarsdenForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">马斯登球</button>' +
-            '<button class="btn btn-ghost btn-small" onclick="openRecordForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">周边训练</button>' +
-          '</div>' +
-        '</div>';
-    });
-    c.innerHTML += '<div style="font-size:15px; font-weight:700; margin:20px 0 4px;">📋 视训师布置的处方</div><div id="rx-home-list"></div>';
-    c.innerHTML += '<div style="font-size:15px; font-weight:700; margin:20px 0 4px;">📌 视训师布置的训练</div><div id="custom-home-list"></div>';
-    renderRxHome(cr.data || []);
-    renderCustomHome(cr.data || []);
+    if (cr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(cr.error.message)) + '</div>'; }
+    else if (!kids.length) { box.innerHTML = '<div class="empty">视训师还没有添加孩子，等等再来</div>'; }
+    else {
+      var cols = '1fr 1fr 1fr';
+      kids.forEach(function (k) {
+        box.innerHTML +=
+          '<div class="list-item" style="flex-direction:column; align-items:stretch;">' +
+            '<div style="display:flex; align-items:center; gap:10px; flex:none;">' +
+              '<span class="icon">👶</span>' +
+              '<div><div class="t">' + esc(k.name) + '</div>' +
+              '<div class="s">' + (k.age ? (k.age + ' 岁') : '') + '</div></div>' +
+            '</div>' +
+            '<div style="display:grid; grid-template-columns:' + cols + '; gap:6px; margin-top:12px; flex:none;">' +
+              '<button class="btn btn-primary btn-small" onclick="openEyeForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">眼位照</button>' +
+              '<button class="btn btn-primary btn-small" onclick="openMarsdenForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">马斯登球</button>' +
+              '<button class="btn btn-ghost btn-small" onclick="openRecordForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">周边训练</button>' +
+            '</div>' +
+          '</div>';
+      });
+    }
+    renderRxHome(kids);
+    renderCustomHome(kids);
   }
   function openRecordForm(cid, cname) {
     state.childId = cid;
@@ -1768,6 +1834,7 @@
       '<button class="btn btn-primary" id="eye-gen" disabled>生成右眼眼位图</button>' +
       '<button class="btn btn-ghost" onclick="home()">返回</button>' +
       '<div class="small-note">遮住另一只眼 · 从正前方拍 · 方位以孩子的左右为准</div>' +
+      '<div class="privacy-note">🔒 眼位照仅回传给你孩子的视训师，用于训练评估，不会公开</div>' +
       '<input type="file" id="eye-input" accept="image/*" style="position:absolute; left:-9999px; width:1px; height:1px;">' +
       '<input type="file" id="eye-input-camera" accept="image/*" capture="environment" style="position:absolute; left:-9999px; width:1px; height:1px;">';
 
@@ -1937,10 +2004,10 @@
         child_id: state.childId, type: 'eye', data: { stage: eyeStage }, media: [path]
       });
       if (ins.error) throw new Error('提交失败：' + errText(ins.error.message));
-      alert(eyeStageLabel() + '眼位图已回传，视训师能看到啦！');
+      toast(eyeStageLabel() + '眼位图已回传，视训师能看到啦！');
       clearEye();   // 清空本阶段照片，准备拍下一个阶段
     } catch (e) {
-      alert(e.message || '生成失败，请重试');
+      toast(e.message || '生成失败，请重试', true);
       btn.disabled = false;
       btn.textContent = '生成' + eyeStageLabel() + '眼位图';
     }
@@ -1972,6 +2039,7 @@
       '</div>' +
       '<div id="marsden-slots"></div>' +
       '<div class="small-note">手机横屏 · 拍到孩子双眼 · 每段 10~20 秒即可</div>' +
+      '<div class="privacy-note">🔒 视频仅回传给你孩子的视训师，用于训练评估，不会公开</div>' +
       '<button class="btn btn-primary" id="marsden-upload" onclick="submitMarsden()" disabled>上传给视训师</button>' +
       '<button class="btn btn-ghost" onclick="home()">返回</button>' +
       '<input type="file" id="marsden-input" accept="video/*" style="position:absolute; left:-9999px; width:1px; height:1px;">' +
@@ -2048,7 +2116,7 @@
 
   async function submitMarsden() {
     var keys = MARSDEN_SLOTS.filter(function (s) { return marsdenVideos[s.key]; }).map(function (s) { return s.key; });
-    if (!keys.length) { alert('请先录至少一段视频'); return; }
+    if (!keys.length) { toast('请先录至少一段视频', true); return; }
     var btn = $('marsden-upload');
     var cid = state.childId;
     btn.disabled = true;
@@ -2079,12 +2147,12 @@
         child_id: cid, type: 'marsden', data: { slots: keys }, media: media
       }).select();
       if (ins.error) throw new Error('提交失败：' + errText(ins.error.message));
-      alert('马斯登球视频已回传，视训师能看到啦！');
+      toast('马斯登球视频已回传，视训师能看到啦！');
       home();
       // 后台补传原画质（不阻塞，失败也不影响压缩版）
       uploadMarsdenOriginals(ins.data[0].id, cid, keys, originals);
     } catch (e) {
-      alert(e.message || '上传失败，请重试');
+      toast(e.message || '上传失败，请重试', true);
       btn.disabled = false;
       btn.textContent = '上传给视训师';
     }
@@ -2198,7 +2266,7 @@
     crop._url = URL.createObjectURL(file);
     var img = $('crop-img');
     img.onload = initCrop;
-    img.onerror = function () { alert('这张图读不出来，请换一张'); closeCrop(); };
+    img.onerror = function () { toast('这张图读不出来，请换一张', true); closeCrop(); };
     img.src = crop._url;
     $('crop-modal').classList.add('open');
     document.body.style.overflow = 'hidden';
@@ -2360,7 +2428,7 @@
   cropVp.addEventListener('wheel', cropWheel, { passive: false });
 
   // 训练游戏全屏层：退出按钮
-  $('game-back').onclick = closeGame;
+  $('game-back').onclick = exitGame;
 
   // 启动：已登录则直接进入
   (async function init() {
