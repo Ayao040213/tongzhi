@@ -1305,6 +1305,7 @@
     $('p-ctrl-hide').onclick = hideCtrl;
     $('p-ctrl-toggle').onclick = showCtrl;
     initCtrlDrag();
+    initToggleDrag();
     $('game-view').classList.remove('is-hart');
 
     initAudio();
@@ -1321,6 +1322,7 @@
 
   // ---------- 控制台：拖动、停靠、隐藏 ----------
   var ctrlDrag = null;
+  var toggleDrag = null, toggleMoved = false;
   function setCtrlDock(orient) {
     var panel = $('p-ctrl');
     if (!panel) return;
@@ -1328,7 +1330,7 @@
     panel.classList.toggle('dock-v', orient === 'v');
   }
   function hideCtrl() { $('p-ctrl').style.display = 'none'; $('p-ctrl-toggle').style.display = 'block'; }
-  function showCtrl() { $('p-ctrl').style.display = 'block'; $('p-ctrl-toggle').style.display = 'none'; }
+  function showCtrl() { if (toggleMoved) return; $('p-ctrl').style.display = 'block'; $('p-ctrl-toggle').style.display = 'none'; }
   function dockCtrl() {
     var panel = $('p-ctrl');
     var r = panel.getBoundingClientRect();
@@ -1373,6 +1375,34 @@
     }
     head.addEventListener('pointerup', end);
     head.addEventListener('pointercancel', end);
+  }
+  // 控制台收起后的 🎛️ 按钮也可拖动（拖动后不误触展开）
+  function initToggleDrag() {
+    var t = $('p-ctrl-toggle');
+    if (!t) return;
+    t.addEventListener('pointerdown', function (e) {
+      var r = t.getBoundingClientRect();
+      toggleDrag = { offX: e.clientX - r.left, offY: e.clientY - r.top, sx: e.clientX, sy: e.clientY };
+      toggleMoved = false;
+      try { t.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    t.addEventListener('pointermove', function (e) {
+      if (!toggleDrag) return;
+      if (!toggleMoved && (Math.abs(e.clientX - toggleDrag.sx) > 6 || Math.abs(e.clientY - toggleDrag.sy) > 6)) toggleMoved = true;
+      if (toggleMoved) {
+        var vw = window.innerWidth, vh = window.innerHeight;
+        var tw = t.offsetWidth || 100, th = t.offsetHeight || 44;
+        var x = Math.max(8, Math.min(vw - tw - 8, e.clientX - toggleDrag.offX));
+        var y = Math.max(8, Math.min(vh - th - 8, e.clientY - toggleDrag.offY));
+        t.style.left = x + 'px';
+        t.style.top = y + 'px';
+        t.style.right = 'auto';
+        t.style.transform = 'none';
+      }
+    });
+    function end() { toggleDrag = null; }
+    t.addEventListener('pointerup', end);
+    t.addEventListener('pointercancel', end);
   }
 
   function pursuitTick(now) {
@@ -1610,6 +1640,7 @@
     $('p-ctrl-hide').onclick = hideCtrl;
     $('p-ctrl-toggle').onclick = showCtrl;
     initCtrlDrag();
+    initToggleDrag();
     $('game-view').classList.add('is-hart');
     hideCtrl();   // 哈特表配置默认收起，训练时只留对/错栏，不挡视标
 
