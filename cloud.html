@@ -1316,11 +1316,7 @@
     pursuit.raf = requestAnimationFrame(pursuitTick);
   }
 
-  function togglePursuitFs() {
-    var on = $('game-view').classList.toggle('pfs');
-    var btn = $('p-fs');
-    if (btn) btn.textContent = on ? '🔳 退出全屏' : '🔲 放大全屏';
-  }
+  function togglePursuitFs() { toggleFs(); }
 
   // ---------- 控制台：拖动、停靠、隐藏 ----------
   var ctrlDrag = null;
@@ -1638,12 +1634,35 @@
     }
   }
 
-  function toggleHartFs() {
-    var on = $('game-view').classList.toggle('pfs');
+  function toggleHartFs() { toggleFs(); }
+
+  // ---------- 真正全屏（去窗口化）：requestFullscreen 隐藏浏览器地址栏/标签页 + pfs 铺满 ----------
+  function isFs() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+  function updateFsBtn() {
     var btn = $('p-fs');
-    if (btn) btn.textContent = on ? '🔳 退出全屏' : '🔲 放大全屏';
-    setTimeout(buildHart, 40);
+    if (btn) btn.textContent = $('game-view').classList.contains('pfs') ? '🔳 退出全屏' : '🔲 放大全屏';
   }
+  function toggleFs() {
+    var on = $('game-view').classList.contains('pfs');
+    $('game-view').classList.toggle('pfs', !on);
+    if (!on) {
+      var el = document.documentElement;
+      if (el.requestFullscreen) { var q = el.requestFullscreen(); if (q && q.catch) q.catch(function () {}); }
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    } else {
+      if (document.exitFullscreen) { var q = document.exitFullscreen(); if (q && q.catch) q.catch(function () {}); }
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    }
+    updateFsBtn();
+    setTimeout(buildHart, 60);
+  }
+  function onFsChange() {
+    $('game-view').classList.toggle('pfs', isFs());
+    updateFsBtn();
+    setTimeout(buildHart, 60);
+  }
+  document.addEventListener('fullscreenchange', onFsChange);
+  document.addEventListener('webkitfullscreenchange', onFsChange);
 
   // 从处方启动线上训练游戏（家长端，关联孩子、可打卡）
   function launchGame(key, cid, cname) {
