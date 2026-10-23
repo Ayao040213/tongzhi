@@ -1083,6 +1083,7 @@
     if (r.error || !r.data) { toast('读不到这个训练', true); return; }
     var p = r.data;
     state.customId = id;
+    state.childId = p.child_id;   // 上传/回传要用到孩子 id（此前漏设，导致打卡上传「没有操作权限」）
     for (var k = 0; k < customPending.length; k++) URL.revokeObjectURL(customPending[k].url);
     customPending = [];
     var c = $('content');
