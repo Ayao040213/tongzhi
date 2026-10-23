@@ -924,6 +924,7 @@
   // ---------- 自定义训练（视训师布置教程 → 家长看 + 回传） ----------
   var customMedia = [];       // 编辑器素材：[{file?, path?, url, type}]
   var customDraftId = null;   // 正在编辑的项目 id（null=新建）
+  var customPending = [];     // 家长待提交的回传照片（本地 {file,url}，未上传）
 
   // 视训师：孩子档案里的自定义训练列表
   async function renderCustomList() {
@@ -1082,15 +1083,19 @@
     if (r.error || !r.data) { toast('读不到这个训练', true); return; }
     var p = r.data;
     state.customId = id;
+    for (var k = 0; k < customPending.length; k++) URL.revokeObjectURL(customPending[k].url);
+    customPending = [];
     var c = $('content');
     c.innerHTML = '<h2 class="page-title">' + esc(p.title || '自定义训练') + '</h2>' +
       '<p class="page-sub">来自视训师的布置</p>' +
       '<div class="card"><h2>📝 教程</h2><div style="white-space:pre-wrap; font-size:14px;">' + (esc(p.content || '').replace(/\n/g, '<br>') || '（视训师没有写教程说明）') + '</div></div>' +
       '<div class="card"><h2>📎 训练素材</h2><div id="custom-detail-media"></div></div>' +
       '<div class="card"><h2>📷 我的回传</h2><div class="custom-assets" id="custom-progress"></div>' +
+      '<div class="custom-assets" id="custom-pending"></div>' +
       '<button class="btn btn-primary btn-small" id="custom-progress-btn" style="margin-top:12px;">📷 拍照回传进度</button></div>' +
+      '<button class="btn btn-primary" id="custom-checkin" style="display:none;">打卡提交给视训师</button>' +
       '<button class="btn btn-ghost" onclick="home()">返回</button>' +
-      '<input type="file" id="custom-progress-input" accept="image/*" capture="environment" style="position:absolute; left:-9999px; width:1px; height:1px;">';
+      '<input type="file" id="custom-progress-input" accept="image/*" capture="environment" multiple style="position:absolute; left:-9999px; width:1px; height:1px;">';
 
     // 素材
     var mbox = $('custom-detail-media');
@@ -1112,7 +1117,8 @@
 
     await renderCustomProgress(id);
     $('custom-progress-btn').onclick = function () { $('custom-progress-input').click(); };
-    $('custom-progress-input').onchange = function () { submitCustomProgress($('custom-progress-input').files[0]); $('custom-progress-input').value = ''; };
+    $('custom-progress-input').onchange = function () { addCustomPending($('custom-progress-input').files); $('custom-progress-input').value = ''; };
+    $('custom-checkin').onclick = checkinCustom;
   }
 
   async function renderCustomProgress(projId) {
@@ -1138,19 +1144,57 @@
     }
   }
 
-  async function submitCustomProgress(file) {
-    if (!file || !state.customId) return;
+  // 家长：待提交照片（本地预览 + 右上角叉号删除）
+  function renderCustomPending() {
+    var box = $('custom-pending');
+    var btn = $('custom-checkin');
+    if (box) {
+      box.innerHTML = '';
+      for (var i = 0; i < customPending.length; i++) {
+        var d = document.createElement('div');
+        d.className = 'asset';
+        d.style.width = '90px'; d.style.height = '90px';
+        d.innerHTML = '<img src="' + customPending[i].url + '">' +
+          '<span class="x" onclick="removeCustomPending(' + i + ')">✕</span>';
+        box.appendChild(d);
+      }
+    }
+    if (btn) btn.style.display = customPending.length ? 'block' : 'none';
+  }
+  function addCustomPending(files) {
+    for (var i = 0; i < files.length; i++) {
+      customPending.push({ file: files[i], url: URL.createObjectURL(files[i]) });
+    }
+    renderCustomPending();
+  }
+  function removeCustomPending(i) {
+    URL.revokeObjectURL(customPending[i].url);
+    customPending.splice(i, 1);
+    renderCustomPending();
+  }
+  // 只有点「打卡」才真正上传 + 建回传记录
+  async function checkinCustom() {
+    if (!customPending.length || !state.customId) return;
     var projId = state.customId;
     var cname = '';
     var pr = await sb.from('custom_projects').select('title').eq('id', projId).single();
     if (pr.data) cname = pr.data.title;
-    file = await compressImage(file, 1280, 0.7);
-    var path = state.childId + '/progress/' + Date.now() + '.jpg';
-    var up = await sb.storage.from('media').upload(path, file, { contentType: 'image/jpeg' });
-    if (up.error) { toast('上传失败：' + errText(up.error.message), true); return; }
-    var ins = await sb.from('records').insert({ child_id: state.childId, type: 'custom', data: { custom_id: projId, custom_title: cname }, media: [path] });
-    if (ins.error) { toast('提交失败：' + errText(ins.error.message), true); return; }
+    var btn = $('custom-checkin');
+    btn.disabled = true; btn.textContent = '上传中…';
+    var paths = [];
+    for (var i = 0; i < customPending.length; i++) {
+      var file = await compressImage(customPending[i].file, 1280, 0.7);
+      var path = state.childId + '/progress/' + Date.now() + '_' + i + '.jpg';
+      var up = await sb.storage.from('media').upload(path, file, { contentType: 'image/jpeg' });
+      if (up.error) { toast('上传失败：' + errText(up.error.message), true); btn.disabled = false; btn.textContent = '打卡提交给视训师'; return; }
+      paths.push(path);
+    }
+    var ins = await sb.from('records').insert({ child_id: state.childId, type: 'custom', data: { custom_id: projId, custom_title: cname }, media: paths });
+    if (ins.error) { toast('提交失败：' + errText(ins.error.message), true); btn.disabled = false; btn.textContent = '打卡提交给视训师'; return; }
     toast('回传成功，视训师能看到啦！');
+    for (var j = 0; j < customPending.length; j++) URL.revokeObjectURL(customPending[j].url);
+    customPending = [];
+    renderCustomPending();
     await renderCustomProgress(projId);
   }
 
