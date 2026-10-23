@@ -1476,13 +1476,19 @@
     var n = hart.perDir;
     var fsInner = 18, fsOuter = 44;
     var margin = 42;   // 边缘留白，避免字符贴边/冲屏
+    var ex = W / 2 - margin, ey = H / 2 - margin;   // 有效半宽/半高
     hart.chars = [];
     for (var d = 0; d < dirs.length; d++) {
-      var ang = dirs[d] * Math.PI / 180;
-      // 按该方向的射线能伸多远算最大半径：斜向更远（字符自然更分散），上下受屏高限制不冲屏
+      var base = dirs[d] * Math.PI / 180;
+      // 斜向（45° 倍数）改成实际指向屏幕四角：角度由屏幕宽高比决定，字符才能伸到对角
+      var isDiag = Math.abs(Math.abs(Math.cos(base)) - Math.abs(Math.sin(base))) < 0.01;
+      var ang = isDiag
+        ? Math.atan2(Math.sin(base) < 0 ? -ey : ey, Math.cos(base) < 0 ? -ex : ex)
+        : base;
+      // 按该方向的射线能伸多远算最大半径：斜向到四角，上下左右受屏尺寸限制不冲屏
       var ca = Math.abs(Math.cos(ang)), sa = Math.abs(Math.sin(ang));
-      var rx = ca < 1e-6 ? Infinity : (W / 2 - margin) / ca;
-      var ry = sa < 1e-6 ? Infinity : (H / 2 - margin) / sa;
+      var rx = ca < 1e-6 ? Infinity : ex / ca;
+      var ry = sa < 1e-6 ? Infinity : ey / sa;
       var rMax = Math.min(rx, ry);
       var rInner = rMax * 0.16, rOuter = rMax * 0.97;
       for (var i = 0; i < n; i++) {
