@@ -188,7 +188,7 @@
   .p-ctrl-item .stage-tab{ padding:7px 0; font-size:12px; }
   .p-ctrl-val{ font-size:12px; color:var(--primary); font-weight:700; text-align:center; }
   /* 收起后的恢复按钮 */
-  .p-ctrl-toggle{ position:fixed; left:16px; top:16px; z-index:60; border:none; background:var(--primary); color:#fff; padding:9px 16px; border-radius:999px; font-size:13px; font-weight:600; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.22); }
+  .p-ctrl-toggle{ position:fixed; right:16px; top:16px; z-index:60; border:none; background:var(--primary); color:#fff; padding:9px 16px; border-radius:999px; font-size:13px; font-weight:600; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.22); }
   /* 结束/全屏 动作按钮（右下角常驻） */
   .p-act{ position:fixed; right:16px; bottom:16px; z-index:60; display:flex; flex-direction:column; gap:8px; }
   .p-act .btn{ margin-top:0; width:auto; padding:10px 18px; font-size:14px; border-radius:999px; background:#fff; border:1px solid var(--line); box-shadow:0 4px 14px rgba(0,0,0,.18); min-height:44px; }
@@ -222,9 +222,19 @@
   .game-view.pfs .hart-area{ position:fixed; inset:0; height:100vh; min-height:0; margin:0; border-radius:0; box-shadow:none; background:#000; }
   .game-view.pfs .hart-char{ color:#fff; }
   .game-view.pfs .hart-char.on{ color:#ff7b7b; text-shadow:0 0 8px rgba(255,120,120,.7); }
+  /* 哈特表「对/错」判断栏：固定底部居中，不遮挡视标 */
+  .hart-judge{ position:fixed; left:50%; bottom:16px; transform:translateX(-50%); z-index:70; display:flex; gap:14px; }
+  .hart-judge .hart-btn{ margin:0; min-width:118px; min-height:56px; padding:0 28px; font-size:18px; font-weight:700; border:none; border-radius:16px; cursor:pointer; color:#fff; box-shadow:0 6px 20px rgba(0,0,0,.28); }
+  .hart-judge .hart-btn:active{ transform:scale(.96); }
+  .hart-judge .hart-btn.yes{ background:var(--success); }
+  .hart-judge .hart-btn.no{ background:var(--bad); }
   /* 移动端触控目标 ≥44px（无障碍） */
   @media (max-width:768px){
     .btn-small, .logout, .stage-tab, .source-tab, .game-back, .p-ctrl-hide{ min-height:44px; }
+  }
+  /* 窄屏下把「结束/全屏」抬到对/错栏上方，避免水平重叠 */
+  @media (max-width:520px){
+    .game-view.is-hart .p-act{ bottom:88px; }
   }
   /* ============ 桌面端布局（可扩展框架，≥900px） ============ */
   @media (min-width:900px){
@@ -1294,6 +1304,7 @@
     $('p-ctrl-hide').onclick = hideCtrl;
     $('p-ctrl-toggle').onclick = showCtrl;
     initCtrlDrag();
+    $('game-view').classList.remove('is-hart');
 
     initAudio();
     pursuit.lastSign = null; pursuit.jumpCount = 0;
@@ -1564,7 +1575,7 @@
     g.innerHTML = '<div class="game-wide">' +
       '<div class="hart-area" id="hart-area"></div>' +
       '<div class="small-note">孩子盯中心不动，家长根据孩子报告点「对/错」</div>' +
-      '<div class="p-ctrl dock-h" id="p-ctrl" style="left:50%; bottom:16px; transform:translateX(-50%);">' +
+      '<div class="p-ctrl dock-h" id="p-ctrl" style="left:50%; top:56px; transform:translateX(-50%);">' +
         '<div class="p-ctrl-head" id="p-ctrl-head"><span class="p-ctrl-title">🎛️ 控制台</span><button class="p-ctrl-hide" id="p-ctrl-hide">—</button></div>' +
         '<div class="p-ctrl-body">' +
           '<div class="p-ctrl-item"><div class="p-ctrl-item-label">🔤 字符</div><div class="stage-tabs" id="h-set">' +
@@ -1574,15 +1585,15 @@
           '<div class="p-ctrl-item"><div class="p-ctrl-item-label">📏 每方向</div><div class="stage-tabs" id="h-per">' +
             '<button class="stage-tab" data-v="3">3个</button><button class="stage-tab active" data-v="4">4个</button><button class="stage-tab" data-v="5">5个</button></div></div>' +
           '<div class="p-ctrl-item"><div class="p-ctrl-item-label">🔄 刷新</div><button class="btn btn-primary btn-small" id="h-refresh">重新打乱字符</button></div>' +
-          '<div class="p-ctrl-item"><div class="p-ctrl-item-label">✅ 记录</div><div style="display:flex; gap:8px; width:100%;">' +
-            '<button class="btn btn-primary btn-small" id="hart-yes" style="flex:1;">✓ 对</button>' +
-            '<button class="btn btn-ghost btn-small" id="hart-no" style="flex:1;">✗ 错</button>' +
-          '</div></div>' +
         '</div></div>' +
       '<button class="p-ctrl-toggle" id="p-ctrl-toggle" style="display:none;">🎛️ 控制台</button>' +
       '<div class="p-act">' +
         '<button class="btn btn-ghost" id="p-fs">🔲 放大全屏</button>' +
         '<button class="btn btn-ghost" id="p-stop">⏹ 结束训练</button>' +
+      '</div>' +
+      '<div class="hart-judge">' +
+        '<button class="hart-btn no" id="hart-no">✗ 错</button>' +
+        '<button class="hart-btn yes" id="hart-yes">✓ 对</button>' +
       '</div></div>';
 
     bindHartGroup('h-set', 'charset');
@@ -1596,6 +1607,8 @@
     $('p-ctrl-hide').onclick = hideCtrl;
     $('p-ctrl-toggle').onclick = showCtrl;
     initCtrlDrag();
+    $('game-view').classList.add('is-hart');
+    hideCtrl();   // 哈特表配置默认收起，训练时只留对/错栏，不挡视标
 
     openGame();
     hart.elapsed = 0;
