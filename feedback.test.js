@@ -261,4 +261,22 @@ assert.ok(hang.indexOf('>演示<') >= 0);
 assert.ok(hang.indexOf('href="app.html"') >= 0);
 assert.ok(hang.indexOf('家庭辅助训练工具，非医疗器械；不诊断、不替代当面带练与医生；不作效果承诺；不适即停，听从视训师与医生。') >= 0);
 
+var WX_HINT = '请点右上角 ··· → 在浏览器中打开';
+assert.ok(page.indexOf(WX_HINT) >= 0, 'cloud login missing wechat hint');
+assert.ok(page.indexOf('MicroMessenger') >= 0, 'cloud missing wechat ua check');
+assert.ok(hang.indexOf(WX_HINT) >= 0, 'hang page missing wechat hint');
+assert.ok(hang.indexOf('MicroMessenger') >= 0, 'hang page missing wechat ua check');
+assert.strictEqual(page.indexOf('maximum-scale'), -1);
+function sliceFn(src, startMark, endMark) {
+  var start = src.indexOf(startMark);
+  var end = src.indexOf(endMark, start + startMark.length);
+  assert.ok(start >= 0 && end > start, startMark);
+  return src.slice(start, end);
+}
+assert.ok(sliceFn(page, 'async function signIn()', 'async function signOut()').indexOf('catch (e)') >= 0);
+assert.ok(sliceFn(page, 'async function signUp()', 'async function signIn()').indexOf('catch (e)') >= 0);
+assert.ok(sliceFn(page, 'async function init()', '})();').indexOf('getSession') >= 0);
+assert.ok(sliceFn(page, 'async function init()', '})();').indexOf('catch (e)') >= 0);
+assert.ok(sliceFn(page, 'async function signIn()', 'async function signOut()').indexOf('thrownAuthText') >= 0);
+
 console.log('feedback.test.js ok');

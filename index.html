@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<script>
+  if (/MicroMessenger/i.test(navigator.userAgent || '')) document.documentElement.classList.add('in-wechat');
+</script>
 <title>瞳治视觉训练助手 · 家庭视觉训练</title>
 <style>
   /* ============ 全局 ============ */
@@ -232,9 +235,20 @@
   .custom-assets .asset{ position:relative; width:80px; height:80px; border-radius:10px; overflow:hidden; border:1px solid var(--line); background:#eef4f6; }
   .custom-assets .asset img, .custom-assets .asset video{ width:100%; height:100%; object-fit:cover; display:block; }
   .custom-assets .asset .x{ position:absolute; top:2px; right:2px; width:20px; height:20px; background:rgba(0,0,0,.65); color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; line-height:1; cursor:pointer; }
+
+  .wx-open-hint{ display:none; }
+  html.in-wechat .wx-open-hint{
+    display:block; position:fixed; left:0; right:0; top:0; z-index:10000;
+    background:#9d1c1c; color:#fff; text-align:center;
+    padding:calc(14px + env(safe-area-inset-top, 0px)) 16px 14px;
+    font-size:17px; font-weight:700; line-height:1.45;
+    box-shadow:0 4px 16px rgba(80,0,0,.28);
+  }
+  html.in-wechat body{ padding-top:calc(72px + env(safe-area-inset-top, 0px)); }
 </style>
 </head>
 <body>
+<div class="wx-open-hint">请点右上角 ··· → 在浏览器中打开</div>
 <div id="app">
 
   <!-- ========== 1. 首页 / 今日计划 ========== -->
