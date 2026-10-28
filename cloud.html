@@ -266,12 +266,19 @@
   .task-split[hidden]{ display:none !important; }
   .help-panel{
     position:fixed; inset:0; z-index:10050; background:rgba(15,40,48,.48);
-    overflow:auto; padding:24px 16px 40px;
+    display:flex; align-items:flex-start; justify-content:center;
+    overflow:hidden; padding:24px 16px 40px;
   }
   .help-panel[hidden]{ display:none !important; }
   .help-card{
-    max-width:560px; margin:0 auto; background:#fff; border-radius:18px;
-    padding:20px 18px 24px; box-shadow:0 12px 40px rgba(20,60,80,.2);
+    max-width:560px; width:100%; max-height:calc(100vh - 64px); margin:0 auto;
+    background:#fff; border-radius:18px; overflow:auto;
+    padding:0 18px 24px; box-shadow:0 12px 40px rgba(20,60,80,.2);
+  }
+  .help-org{
+    position:sticky; top:0; z-index:2; margin:0 -18px 14px; padding:12px 18px;
+    background:#fff7e8; border-bottom:1px solid #f2d5a8; border-radius:18px 18px 0 0;
+    font-size:13px; line-height:1.65; color:var(--text);
   }
   .help-card h2{ font-size:18px; margin:0 0 10px; }
   .help-card h3{ font-size:15px; margin:16px 0 6px; }
@@ -321,26 +328,27 @@
   </div>
 
   <footer class="site-foot">
-    <p>家庭辅助训练工具，非医疗器械；不诊断、不替代当面带练与医生；不作效果承诺；不适即停，听从师傅与医生。</p>
+    <p>家庭辅助训练工具，非医疗器械；不诊断、不替代当面带练与医生；不作效果承诺；不适即停，听从视训师与医生。</p>
     <button type="button" class="linkbtn" onclick="openHelp()">关于 / 帮助</button>
   </footer>
 </div>
 
 <div id="help-panel" class="help-panel" hidden onclick="if(event.target===this)closeHelp()">
   <div class="help-card" role="dialog" aria-labelledby="help-title">
+    <p class="help-org">本工具配合本机构线下当面带练使用；非医疗器械，不提供诊断与效果承诺。</p>
     <h2 id="help-title">关于</h2>
-    <p>瞳治视觉助手是家庭侧的辅助训练工具，用来承接师傅布置的练习任务。孩子在家按任务完成练习，练习记录可回传给师傅。线下课与当面带练仍是主场；本产品不诊断、不替代当面带练或医生面诊。效果因人而异，不作承诺。如感不适请立即停止，并听从师傅与医生的指导。</p>
+    <p>瞳治视觉助手是家庭侧的辅助训练工具，用来承接视训师布置的练习任务。孩子在家按任务完成练习，练习记录可回传给视训师。线下课与当面带练仍是主场；本产品不诊断、不替代当面带练或医生面诊。效果因人而异，不作承诺。如感不适请立即停止，并听从视训师与医生的指导。</p>
     <h2>帮助</h2>
     <h3>1. 坚持很难，怎么办？</h3>
-    <p>可以按「短时多次」来：今日作业大约 15 分钟，能拆成两次完成。关键是按师傅布置的练习做完并回传，而不是一次硬扛很久。若连续多天做不到，把情况告诉师傅，让师傅调任务节奏。</p>
+    <p>可以按「短时多次」来：按视训师布置的今日作业时长，大约十五分钟量级，可拆两次完成。关键是按视训师布置的练习做完并回传，而不是一次硬扛很久。若连续多天做不到，把情况告诉视训师，让视训师调任务节奏。</p>
     <h3>2. 要不要天天练 / 天天来？</h3>
-    <p>按师傅布置的天数和今日作业来，不要自行加码或减码。临时有事，提前跟师傅说，由师傅调整练习安排。线下当面带练仍按机构安排。</p>
+    <p>按视训师布置的天数和今日作业来，不要自行加码或减码。临时有事，提前跟视训师说，由视训师调整练习安排。线下当面带练仍按机构安排。</p>
     <h3>3. 孩子说不舒服怎么办？</h3>
-    <p>立即停止练习。先休息，再联系师傅或医生，不要忍着练完，也不要自己改练法或加量。瞳治是辅助工具，不能替代当面判断。</p>
+    <p>立即停止练习。先休息，再联系视训师或医生，不要忍着练完，也不要自己改练法或加量。瞳治是辅助工具，不能替代当面判断。</p>
     <h3>4. 和线下课是什么关系？</h3>
-    <p>线下课与当面带练是主场。瞳治把师傅布置的练习送到家里，并把完成度、有效时长、正确率/达标率回传给师傅，方便跟进。它是辅线下，不是替代上课。</p>
+    <p>线下课与当面带练是主场。瞳治把视训师布置的练习送到家里，并把完成度、有效时长、正确率/达标率回传给视训师，方便跟进。它是辅线下，不是替代上课。</p>
     <h3>5. 多久能看到效果？</h3>
-    <p>效果因人而异，本产品不作效果承诺。我们关注的是有没有按任务练习、回传是否完整（完成度、有效时长、正确率/达标率），好让师傅调整练习安排。有疑问请咨询师傅或医生。</p>
+    <p>效果因人而异，本产品不作效果承诺。我们关注的是有没有按任务练习、回传是否完整（完成度、有效时长、正确率/达标率），好让视训师调整练习安排。有疑问请咨询视训师或医生。</p>
     <h3>6. 瞳治是医疗器械吗？会诊断吗？</h3>
     <p>不是。瞳治是家庭辅助训练工具，非医疗器械，不提供诊断或治疗建议，不能替代当面带练或医生面诊。</p>
     <button type="button" class="btn btn-ghost" onclick="closeHelp()">关闭</button>
@@ -389,8 +397,8 @@
   var $ = function (id) { return document.getElementById(id); };
   var state = { user: null, profile: null, familyId: null, childId: null, childName: null };
 
-  // 家长端文案（W3 CTA / M3 今日任务）。师傅端对内仍用「布置练习」，家长端不出现「处方」。
-  var TASK_MAIN = '今日作业约 15 分钟，可一次做完，也可拆成两次。请按师傅布置的练习完成；练习记录（完成度、有效时长、正确率/达标率）会回传给师傅。如感不适，请立即停止，并联系师傅或医生。';
+  // 家长端文案（W3 CTA / M3 今日任务）。视训师端对内仍用「布置练习」，家长端不出现「处方」。
+  var TASK_MAIN = '今日作业约 15 分钟，可一次做完，也可拆成两次。请按视训师布置的练习完成；练习记录（完成度、有效时长、正确率/达标率）会回传给视训师。如感不适，请立即停止，并联系视训师或医生。';
   var TASK_SPLIT = '今天的作业可以分成两次做。下次打开，从上次停下的地方继续。';
   function showSplitHint(id) {
     var el = $(id);
@@ -854,7 +862,7 @@
       '日期：' + (p.title || '') + '\n' +
       projects.map(function (pr, i) { return (i + 1) + '. ' + pr.title + '：' + (pr.param || ''); }).join('\n') +
       (p.note ? '\n注意：' + p.note : '') +
-      '\n—— 请按师傅布置的练习完成，练完回传（拍照/录像/记命中）。';
+      '\n—— 请按视训师布置的练习完成，练完回传（拍照/录像/记命中）。';
   }
 
   // 视训师：孩子档案里列出处方
@@ -944,7 +952,7 @@
     if (!box) return;
     var res = await sb.from('prescriptions').select('*');
     if (res.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(res.error.message)) + '</div>'; return; }
-    if (!res.data.length) { box.innerHTML = '<div class="empty">师傅还没有布置今日作业</div>'; return; }
+    if (!res.data.length) { box.innerHTML = '<div class="empty">视训师还没有布置今日作业</div>'; return; }
     var nameOf = {};
     children.forEach(function (k) { nameOf[k.id] = k.name; });
     res.data.sort(function (a, b) { return new Date(b.created_at) - new Date(a.created_at); }).forEach(function (p) {
@@ -986,7 +994,7 @@
       if (isBig) {
         ga.innerHTML += '<div class="card" style="margin-top:12px;"><div class="t">' + gm.icon + ' ' + esc(gm.title) + '</div>' +
           '<div class="s" style="margin:4px 0 10px;">' + esc(gm.desc) + '</div>' +
-          '<button class="btn btn-primary" onclick="launchGame(\'' + g.key + '\',\'' + p.child_id + '\',\'' + esc(cname) + '\')">按师傅布置的练习开始</button></div>';
+          '<button class="btn btn-primary" onclick="launchGame(\'' + g.key + '\',\'' + p.child_id + '\',\'' + esc(cname) + '\')">按视训师布置的练习开始</button></div>';
       } else {
         ga.innerHTML += '<div class="card" style="margin-top:12px; font-size:13px; color:var(--muted);">💻 「' + esc(gm.title) + '」需要在电脑或投屏大屏上完成，请换大屏打开</div>';
       }
@@ -1870,7 +1878,7 @@
     var cr = await sb.from('children').select('*').eq('family_id', fid).order('created_at');
     var kids = cr.data || [];
 
-    // 顶部以今日作业为主角：师傅布置的练习在前，孩子回传降到日常区
+    // 顶部以今日作业为主角：视训师布置的练习在前，孩子回传降到日常区
     c.innerHTML =
       '<h2 class="page-title">我的家庭' + (fam.data ? '：' + esc(fam.data.name) : '') + '</h2>' +
       '<div class="task-note">' + TASK_MAIN + '</div>' +
