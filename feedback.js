@@ -1,7 +1,7 @@
-/* 回传最小版（M2）
+/* 回传最小版（M2）+ 两门练习的打卡口径（M4）
  * 完成：当日该孩子该练习有成功打卡记录即完成。有效时长、正确率不挡完成，不设练满分钟门槛。
  * 曲线：近 7 / 14 日。纵轴默认有效时长（data.actual 秒）。哈特可切正确率/达标率 = 答对÷(答对+答错)。
- * 追视是时长型，本月不单列正确率。不改 records 表。
+ * 没有对错记录时正确率留空，不记成 0%。追视是时长型，本月不单列正确率。不改 records 表。
  */
 (function (root, factory) {
   var api = factory();
@@ -156,6 +156,23 @@
     return '完成只看今天有没有打卡。有效时长、正确率/达标率画在曲线里，短时长或低正确率也算完成，不要求练满固定分钟。';
   }
 
+  function noteShort() {
+    return '完成只看今天有没有打卡。';
+  }
+
+  function noteDetail(audience) {
+    var full = noteText(audience);
+    var short = noteShort();
+    if (full.indexOf(short) === 0) return full.slice(short.length).replace(/^\s+/, '');
+    return full;
+  }
+
+  function noteBlock(audience) {
+    return '<p class="fb-note">' + esc(noteShort()) +
+      ' <button type="button" class="linkbtn fb-note-toggle" aria-expanded="false">说明</button></p>' +
+      '<p class="fb-note-more" hidden>' + esc(noteDetail(audience)) + '</p>';
+  }
+
   function auxText(day, type) {
     if (!day.done) return '今天还没有打卡';
     var parts = ['有效时长 ' + fmtDuration(day.seconds)];
@@ -163,6 +180,135 @@
       parts.push(day.accuracy == null ? '这次没有对错记录' : ('正确率/达标率 ' + pct(day.accuracy)));
     }
     return parts.join(' · ');
+  }
+
+  var PRACTICE_COPY = {
+    exit: '✕ 退出练习',
+    end: '结束这次练习',
+    start: '按视训师布置的练习开始',
+    previewStart: '开始试玩',
+    back: '返回',
+    previewTag: '试玩',
+    pursuitReady: '请按视训师布置的练习来做。孩子眼睛跟着小球，头尽量不要跟着转。做很短也可以结束并打卡。打卡后今日作业即算完成，不要求练满固定分钟。',
+    hartReady: '请按视训师布置的练习来做。孩子注视中心红点，家长按孩子的回答点「对」或「错」。不点对错也可以打卡，正确率留空，不记成 0%。很短、正确率低也算完成。',
+    discomfort: '如感不适，请立即停止，并联系视训师或医生。',
+    previewReady: '试玩不会打卡，也不会记入今日完成。',
+    pursuitLive: '眼睛跟着小球，头尽量不动。可以随时结束并打卡。不适请立即停止。',
+    hartLive: '孩子盯住中心，家长点对或错。不点对错，正确率留空。不适请立即停止。',
+    hartLiveEmpty: '还没有对错记录，正确率会留空',
+    hartRebuildEmpty: '画面还没准备好。把窗口拉大一点，或点控制台里的「重新打乱字符」。',
+    hartNoTarget: '字符还没准备好，这次不计入对错。',
+    stopTitle: '这次先停在这里',
+    previewStopTitle: '试玩结束',
+    stopLead: '还没有打卡。打卡之后，首页才会显示「今日作业已完成」。很短、正确率低也可以打卡。',
+    previewStopLead: '试玩不会打卡，也不会记入今日完成。',
+    pursuitNoAccuracy: '追视小球本月看有效时长，不单列正确率。',
+    noJudgeExtra: '回传后正确率留空，不记成 0%。',
+    checkin: '打卡，记为今日完成',
+    resume: '继续这次练习',
+    skip: '先不打卡，返回',
+    skipConfirm: '这次还没打卡，不会记入今日完成。确定返回？',
+    exitConfirm: '今天的作业可以分成两次做。现在离开的话，这次不会打卡，时长也不会回传。',
+    doneTitle: '今日作业已完成',
+    doneLead: '这次打卡已回传给视训师。完成只看今天有没有打卡；有效时长、正确率/达标率供查看，不挡完成。',
+    againLead: '还可以再练一次。多次打卡的有效时长会加在一起。',
+    homeBtn: '回到首页看今日完成',
+    again: '再练一次',
+    fail: '这次还没记上，今日还不算完成。请再点一次打卡。',
+    noChild: '没有关联到孩子，这次没法打卡。请从今日作业重新进入。',
+    uploading: '打卡上传中…',
+    taskAgain: '今天已经打过卡，还可以再做一次；多次打卡的时长会加在一起。',
+    taskShort: '做很短也可以打卡。打卡后显示「今日作业已完成」，不要求练满固定分钟。',
+    needBig: '需要在电脑或投屏大屏上完成。请换到大屏后，按视训师布置的练习开始；做很短也可以打卡。',
+    pursuitDesc: '眼睛跟随小球。做很短也可以打卡，打卡即算今日完成。',
+    hartDesc: '注视中心，辨认周围字符。没有对错记录时正确率留空，不记成 0%。',
+    pursuitParam: '电脑/大屏 · 眼睛跟随小球 · 做很短也可以打卡',
+    hartParam: '电脑/大屏 · 注视中心辨认字符 · 没有对错记录时正确率留空',
+    settingReset: '已更换设置，这次的对错计数从头算。',
+    pursuitCat: '打卡回传 · 有效时长',
+    hartCat: '打卡回传 · 有效时长与正确率',
+    rxTailLocked: '请按视训师布置的练习完成。追视小球、哈特表在大屏上做完后打卡即可，很短也算完成；其他项目仍按原来的方式回传。'
+  };
+
+  function clampSeconds(value) {
+    var n = Number(value);
+    if (!isNum(n) || n < 0) return 0;
+    return Math.round(n);
+  }
+
+  function pursuitRecordData(session) {
+    session = session || {};
+    return {
+      speed: session.speed,
+      amp: session.amp,
+      trajectory: session.trajectory || session.traj || 'h',
+      actual: clampSeconds(session.actual != null ? session.actual : session.elapsed)
+    };
+  }
+
+  function hartRecordData(session) {
+    session = session || {};
+    var correct = Number(session.correct);
+    var wrong = Number(session.wrong);
+    if (!isNum(correct) || correct < 0) correct = 0;
+    if (!isNum(wrong) || wrong < 0) wrong = 0;
+    var perDir = session.per_dir != null ? session.per_dir : session.perDir;
+    return {
+      charset: session.charset || 'mix',
+      per_dir: perDir,
+      correct: Math.round(correct),
+      wrong: Math.round(wrong),
+      actual: clampSeconds(session.actual != null ? session.actual : session.elapsed)
+    };
+  }
+
+  function sessionReport(type, data) {
+    var d = recordData({ data: data });
+    var seconds = clampSeconds(d.actual != null ? d.actual : d.elapsed);
+    var correct = 0;
+    var wrong = 0;
+    var accuracy = null;
+    if (type === 'hart') {
+      correct = Number(d.correct);
+      wrong = Number(d.wrong);
+      if (!isNum(correct) || correct < 0) correct = 0;
+      if (!isNum(wrong) || wrong < 0) wrong = 0;
+      correct = Math.round(correct);
+      wrong = Math.round(wrong);
+      var total = correct + wrong;
+      accuracy = total > 0 ? correct / total : null;
+    }
+    return {
+      seconds: seconds,
+      correct: correct,
+      wrong: wrong,
+      accuracy: accuracy,
+      durationText: '有效时长 ' + fmtDuration(seconds),
+      accuracyText: type !== 'hart' ? '' : (accuracy == null ? '这次没有对错记录' : ('正确率/达标率 ' + pct(accuracy)))
+    };
+  }
+
+  function speedLabel(speed) {
+    if (typeof speed === 'number' && isFinite(speed)) return (Math.round(speed * 10) / 10) + ' 档';
+    return { slow: '慢速', mid: '中速', fast: '快速' }[speed] || '';
+  }
+
+  function recordCaption(type, data) {
+    var d = recordData({ data: data });
+    var report = sessionReport(type, d);
+    if (type === 'pursuit') {
+      var traj = { h: '左右移动', v: '上下移动', cw: '顺时针', ccw: '逆时针', hj: '左右跳跃', vj: '上下跳跃' }[d.trajectory] || '追视';
+      var speed = speedLabel(d.speed);
+      var amp = d.amp != null ? ('摆幅 ' + d.amp + '%') : '';
+      return ['追视小球', traj, speed, amp, report.durationText].filter(Boolean).join(' · ');
+    }
+    if (type === 'hart') {
+      var judge = report.accuracy == null
+        ? '这次没有对错记录'
+        : ('答对 ' + report.correct + ' · 答错 ' + report.wrong + ' · ' + report.accuracyText);
+      return '哈特表 · ' + judge + ' · ' + report.durationText;
+    }
+    return '';
   }
 
   function emptyCopy(metric, range, audience) {
@@ -292,19 +438,31 @@
     return Math.round(n * 10) / 10;
   }
 
+  function tabClass(on, quiet) {
+    return 'fb-tab' + (on ? ' on' : '') + (quiet ? ' is-quiet' : '');
+  }
+
+  function metricTabs(ex, series, metric) {
+    if (ex.key !== 'hart') return '';
+    var durationQuiet = !hasChartData(series, 'duration');
+    var accuracyQuiet = !hasChartData(series, 'accuracy');
+    var empty = !hasChartData(series, metric);
+    return '<div class="fb-metric' + (empty ? ' is-quiet' : '') + '">' +
+      '<button type="button" class="' + tabClass(metric === 'duration', durationQuiet) + '" data-fb-metric="duration">有效时长</button>' +
+      '<button type="button" class="' + tabClass(metric === 'accuracy', accuracyQuiet) + '" data-fb-metric="accuracy">正确率/达标率</button>' +
+      '</div>';
+  }
+
   function chartBlock(ex, series, metric, range, audience) {
     var title = ex.icon + ' ' + ex.label + (metric === 'accuracy' ? ' · 正确率/达标率' : ' · 有效时长');
-    var head = '<div class="fb-chart-head"><div class="t">' + title + '</div>';
-    if (ex.key === 'hart') {
-      head += '<div class="fb-metric">' +
-        '<button type="button" class="fb-tab' + (metric === 'duration' ? ' on' : '') + '" data-fb-metric="duration">有效时长</button>' +
-        '<button type="button" class="fb-tab' + (metric === 'accuracy' ? ' on' : '') + '" data-fb-metric="accuracy">正确率/达标率</button>' +
-        '</div>';
-    }
-    head += '</div>';
+    var empty = !hasChartData(series, metric);
+    var tabs = metricTabs(ex, series, metric);
+    var head = '<div class="fb-chart-head"><div class="t">' + title + '</div>' + (empty ? '' : tabs) + '</div>';
     var body;
-    if (!hasChartData(series, metric)) {
-      body = '<div class="fb-empty">' + esc(emptyCopy(metric, range, audience)) + '</div>';
+    if (empty) {
+      body = '<div class="fb-empty">' + esc(emptyCopy(metric, range, audience));
+      if (audience === 'parent') body += '<div><button type="button" class="linkbtn" data-open-help>关于 / 帮助</button></div>';
+      body += '</div>' + tabs;
     } else {
       var sum = summaryText(series, metric);
       var described = title + '。' + sum;
@@ -317,7 +475,7 @@
         body += '<p class="fb-cap">正确率/达标率 = 答对 ÷（答对 + 答错）。只供查看，不挡完成。</p>';
       }
     }
-    return '<div class="fb-chart-block" data-chart="' + ex.key + '" data-metric="' + metric + '">' + head + body + '</div>';
+    return '<div class="fb-chart-block' + (empty ? ' is-empty' : '') + '" data-chart="' + ex.key + '" data-metric="' + metric + '">' + head + body + '</div>';
   }
 
   function renderPanel(opts) {
@@ -332,7 +490,7 @@
     if (audience === 'parent') {
       html += '<div class="fb-child">' + esc(opts.childName || '孩子') + '</div>';
     }
-    if (opts.showNote !== false) html += '<p class="fb-note">' + esc(noteText(audience)) + '</p>';
+    if (opts.showNote !== false) html += noteBlock(audience);
     for (var i = 0; i < LOCKED.length; i++) {
       var ex = LOCKED[i];
       var todayDays = windowDays(1, now);
@@ -345,9 +503,13 @@
         '<span class="fb-badge ' + (today.done ? 'done' : 'todo') + '">' + esc(badgeText(today.done, audience)) + '</span>' +
         '</div>';
     }
-    html += '<div class="fb-switch">' +
-      '<button type="button" class="fb-tab' + (range === 7 ? ' on' : '') + '" data-fb-range="7">近 7 日</button>' +
-      '<button type="button" class="fb-tab' + (range === 14 ? ' on' : '') + '" data-fb-range="14">近 14 日</button>' +
+    var quietRange = true;
+    for (var q = 0; q < LOCKED.length; q++) {
+      if (hasChartData(bucket(records, LOCKED[q].key, days), 'duration')) quietRange = false;
+    }
+    html += '<div class="fb-switch' + (quietRange ? ' is-quiet' : '') + '">' +
+      '<button type="button" class="' + tabClass(range === 7, quietRange) + '" data-fb-range="7">近 7 日</button>' +
+      '<button type="button" class="' + tabClass(range === 14, quietRange) + '" data-fb-range="14">近 14 日</button>' +
       '</div>';
     for (var c = 0; c < LOCKED.length; c++) {
       var item = LOCKED[c];
@@ -366,8 +528,15 @@
     groupByChild: groupByChild,
     badgeText: badgeText,
     noteText: noteText,
+    noteShort: noteShort,
+    noteBlock: noteBlock,
     fmtDuration: fmtDuration,
     renderPanel: renderPanel,
-    emptyCopy: emptyCopy
+    emptyCopy: emptyCopy,
+    PRACTICE_COPY: PRACTICE_COPY,
+    pursuitRecordData: pursuitRecordData,
+    hartRecordData: hartRecordData,
+    sessionReport: sessionReport,
+    recordCaption: recordCaption
   };
 });
