@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<script>
+  if (/MicroMessenger/i.test(navigator.userAgent || '')) document.documentElement.classList.add('in-wechat');
+</script>
 <title>瞳治视觉训练助手 · 云端版</title>
 <style>
   /* ============ 设计令牌 ============ */
@@ -337,6 +340,16 @@
   .help-card h2{ font-size:18px; margin:0 0 10px; }
   .help-card h3{ font-size:15px; margin:16px 0 6px; }
   .help-card p{ font-size:14px; margin:0 0 8px; line-height:1.7; }
+
+  .wx-open-hint{ display:none; }
+  html.in-wechat #login-view{ padding-top:calc(72px + env(safe-area-inset-top, 0px)); }
+  html.in-wechat #login-view .wx-open-hint{
+    display:block; position:fixed; left:0; right:0; top:0; z-index:10000;
+    background:#9d1c1c; color:#fff; text-align:center;
+    padding:calc(14px + env(safe-area-inset-top, 0px)) 16px 14px;
+    font-size:17px; font-weight:700; line-height:1.45;
+    box-shadow:0 4px 16px rgba(80,0,0,.28);
+  }
 </style>
 </head>
 <body>
@@ -344,6 +357,7 @@
 
   <!-- 登录 / 注册 -->
   <div id="login-view">
+    <div class="wx-open-hint">请点右上角 ··· → 在浏览器中打开</div>
     <div class="login-hero">
       <div class="logo">👁️</div>
       <h1>瞳治视觉训练助手</h1>
@@ -504,6 +518,10 @@
     if (/rate limit/i.test(msg)) return '操作太频繁，请稍后再试';
     return msg;
   }
+  function thrownAuthText(e) {
+    var msg = (e && e.message) ? e.message : '';
+    return errText(msg) || '网络连接失败，请检查网络后重试';
+  }
   function roleText(r) { return r === 'therapist' ? '视训师' : '家长'; }
   function toggleOrig(btn) {
     var box = btn.previousElementSibling;
@@ -632,27 +650,35 @@
     var code = $('therapist-code').value.trim();
     if (signupRole === 'therapist' && !code) { showMsg('视训师需要填写授权码'); return; }
     showMsg('正在注册……');
-    var res = await sb.auth.signUp({ email: email, password: password });
-    if (res.error) { showMsg('注册失败：' + errText(res.error.message)); return; }
-    // 视训师：注册后立刻用授权码升级身份
-    if (signupRole === 'therapist') {
-      if (!res.data.session) { showMsg('注册成功，但未自动登录。请点「登录」后，在首页输入授权码升级', true); return; }
-      var r = await sb.rpc('register_therapist', { p_code: code });
-      if (r.error) { showMsg('升级失败：' + errText(r.error.message), false); await sb.auth.signOut(); showLogin(); return; }
-      if (r.data === false) { showMsg('授权码错误，账号已注册为「家长」。请用此邮箱登录，在首页点「我是视训师」重试', false); await sb.auth.signOut(); showLogin(); return; }
-      showMsg('注册成功，已成为视训师', true); afterLogin(res.data.user);
-      return;
+    try {
+      var res = await sb.auth.signUp({ email: email, password: password });
+      if (res.error) { showMsg('注册失败：' + errText(res.error.message)); return; }
+      // 视训师：注册后立刻用授权码升级身份
+      if (signupRole === 'therapist') {
+        if (!res.data.session) { showMsg('注册成功，但未自动登录。请点「登录」后，在首页输入授权码升级', true); return; }
+        var r = await sb.rpc('register_therapist', { p_code: code });
+        if (r.error) { showMsg('升级失败：' + errText(r.error.message), false); try { await sb.auth.signOut(); } catch (e2) {} showLogin(); return; }
+        if (r.data === false) { showMsg('授权码错误，账号已注册为「家长」。请用此邮箱登录，在首页点「我是视训师」重试', false); try { await sb.auth.signOut(); } catch (e2) {} showLogin(); return; }
+        showMsg('注册成功，已成为视训师', true); await afterLogin(res.data.user);
+        return;
+      }
+      if (res.data.session) { showMsg('注册成功，已自动登录', true); await afterLogin(res.data.user); }
+      else { showMsg('注册成功！请点「登录」进入', true); }
+    } catch (e) {
+      showMsg('注册失败：' + thrownAuthText(e));
     }
-    if (res.data.session) { showMsg('注册成功，已自动登录', true); afterLogin(res.data.user); }
-    else { showMsg('注册成功！请点「登录」进入', true); }
   }
   async function signIn() {
     var email = $('email').value.trim(), password = $('password').value;
     if (!email || !password) { showMsg('请填写邮箱和密码'); return; }
     showMsg('正在登录……');
-    var res = await sb.auth.signInWithPassword({ email: email, password: password });
-    if (res.error) { showMsg('登录失败：' + errText(res.error.message)); return; }
-    afterLogin(res.data.user);
+    try {
+      var res = await sb.auth.signInWithPassword({ email: email, password: password });
+      if (res.error) { showMsg('登录失败：' + errText(res.error.message)); return; }
+      await afterLogin(res.data.user);
+    } catch (e) {
+      showMsg('登录失败：' + thrownAuthText(e));
+    }
   }
   async function signOut() { await sb.auth.signOut(); state.user = null; state.profile = null; showLogin(); }
 
@@ -3124,8 +3150,12 @@
 
   // 启动：已登录则直接进入
   (async function init() {
-    var res = await sb.auth.getSession();
-    if (res.data && res.data.session) afterLogin(res.data.session.user);
+    try {
+      var res = await sb.auth.getSession();
+      if (res.data && res.data.session) await afterLogin(res.data.session.user);
+    } catch (e) {
+      showMsg(thrownAuthText(e));
+    }
   })();
 </script>
 </body>
