@@ -250,6 +250,39 @@
     .grid-2 > .card, .grid-3 > .card, .grid-auto > .card{ margin:0; }
     body.is-parent #content{ max-width:720px; margin:0 auto; }
   }
+
+  /* ============ 页脚 / 今日作业说明 / 关于帮助 ============ */
+  .site-foot{
+    margin:28px 0 4px; padding:14px 4px 0; border-top:1px solid var(--line);
+    text-align:center; font-size:12px; line-height:1.7; color:var(--muted);
+  }
+  .site-foot p{ margin:0; }
+  .site-foot .linkbtn{ margin-top:8px; font-size:13px; min-height:44px; }
+  .task-note, .task-split{
+    background:#f7fafb; border:1px solid var(--line); border-radius:12px;
+    padding:12px 14px; font-size:13px; line-height:1.7; margin:12px 0 4px; color:var(--text);
+  }
+  .task-split{ background:#fff8ef; border-color:#f2d5a8; }
+  .task-split[hidden]{ display:none !important; }
+  .help-panel{
+    position:fixed; inset:0; z-index:10050; background:rgba(15,40,48,.48);
+    display:flex; align-items:flex-start; justify-content:center;
+    overflow:hidden; padding:24px 16px 40px;
+  }
+  .help-panel[hidden]{ display:none !important; }
+  .help-card{
+    max-width:560px; width:100%; max-height:calc(100vh - 64px); margin:0 auto;
+    background:#fff; border-radius:18px; overflow:auto;
+    padding:0 18px 24px; box-shadow:0 12px 40px rgba(20,60,80,.2);
+  }
+  .help-org{
+    position:sticky; top:0; z-index:2; margin:0 -18px 14px; padding:12px 18px;
+    background:#fff7e8; border-bottom:1px solid #f2d5a8; border-radius:18px 18px 0 0;
+    font-size:13px; line-height:1.65; color:var(--text);
+  }
+  .help-card h2{ font-size:18px; margin:0 0 10px; }
+  .help-card h3{ font-size:15px; margin:16px 0 6px; }
+  .help-card p{ font-size:14px; margin:0 0 8px; line-height:1.7; }
 </style>
 </head>
 <body>
@@ -294,6 +327,32 @@
     <div id="content"></div>
   </div>
 
+  <footer class="site-foot">
+    <p>家庭辅助训练工具，非医疗器械；不诊断、不替代当面带练与医生；不作效果承诺；不适即停，听从视训师与医生。</p>
+    <button type="button" class="linkbtn" onclick="openHelp()">关于 / 帮助</button>
+  </footer>
+</div>
+
+<div id="help-panel" class="help-panel" hidden onclick="if(event.target===this)closeHelp()">
+  <div class="help-card" role="dialog" aria-labelledby="help-title">
+    <p class="help-org">本工具配合本机构线下当面带练使用；非医疗器械，不提供诊断与效果承诺。</p>
+    <h2 id="help-title">关于</h2>
+    <p>瞳治视觉助手是家庭侧的辅助训练工具，用来承接视训师布置的练习任务。孩子在家按任务完成练习，练习记录可回传给视训师。线下课与当面带练仍是主场；本产品不诊断、不替代当面带练或医生面诊。效果因人而异，不作承诺。如感不适请立即停止，并听从视训师与医生的指导。</p>
+    <h2>帮助</h2>
+    <h3>1. 坚持很难，怎么办？</h3>
+    <p>可以按「短时多次」来：按视训师布置的今日作业时长，大约十五分钟量级，可拆两次完成。关键是按视训师布置的练习做完并回传，而不是一次硬扛很久。若连续多天做不到，把情况告诉视训师，让视训师调任务节奏。</p>
+    <h3>2. 要不要天天练 / 天天来？</h3>
+    <p>按视训师布置的天数和今日作业来，不要自行加码或减码。临时有事，提前跟视训师说，由视训师调整练习安排。线下当面带练仍按机构安排。</p>
+    <h3>3. 孩子说不舒服怎么办？</h3>
+    <p>立即停止练习。先休息，再联系视训师或医生，不要忍着练完，也不要自己改练法或加量。瞳治是辅助工具，不能替代当面判断。</p>
+    <h3>4. 和线下课是什么关系？</h3>
+    <p>线下课与当面带练是主场。瞳治把视训师布置的练习送到家里，并把完成度、有效时长、正确率/达标率回传给视训师，方便跟进。它是辅线下，不是替代上课。</p>
+    <h3>5. 多久能看到效果？</h3>
+    <p>效果因人而异，本产品不作效果承诺。我们关注的是有没有按任务练习、回传是否完整（完成度、有效时长、正确率/达标率），好让视训师调整练习安排。有疑问请咨询视训师或医生。</p>
+    <h3>6. 瞳治是医疗器械吗？会诊断吗？</h3>
+    <p>不是。瞳治是家庭辅助训练工具，非医疗器械，不提供诊断或治疗建议，不能替代当面带练或医生面诊。</p>
+    <button type="button" class="btn btn-ghost" onclick="closeHelp()">关闭</button>
+  </div>
 </div>
 
 <!-- 图片查看器：点开大图，可双指缩放 / 拖动 / 双击放大，仿微信 -->
@@ -337,6 +396,24 @@
 
   var $ = function (id) { return document.getElementById(id); };
   var state = { user: null, profile: null, familyId: null, childId: null, childName: null };
+
+  // 家长端文案（W3 CTA / M3 今日任务）。视训师端对内仍用「布置练习」，家长端不出现「处方」。
+  var TASK_MAIN = '今日作业约 15 分钟，可一次做完，也可拆成两次。请按视训师布置的练习完成；练习记录（完成度、有效时长、正确率/达标率）会回传给视训师。如感不适，请立即停止，并联系视训师或医生。';
+  var TASK_SPLIT = '今天的作业可以分成两次做。下次打开，从上次停下的地方继续。';
+  function showSplitHint(id) {
+    var el = $(id);
+    if (el) el.hidden = false;
+  }
+  function openHelp() {
+    var p = $('help-panel');
+    if (!p) return;
+    p.hidden = false;
+  }
+  function closeHelp() {
+    var p = $('help-panel');
+    if (!p) return;
+    p.hidden = true;
+  }
 
   // ---------- 工具 ----------
   function esc(s) {
@@ -546,7 +623,7 @@
   // 线上视觉训练板块（孩子档案里，和处方/自定义训练平级；只视训师可见，靠处方下发）
   function renderGameBoard() {
     var html = '<div style="font-size:15px; font-weight:700; margin:18px 0 4px;">🎮 线上视觉训练</div>' +
-      '<div style="font-size:12px; color:var(--muted); margin-bottom:8px;">游戏类训练，需孩子在电脑/大屏完成；勾进「训练处方」布置给家长后才能玩。点「试玩」可预览。</div>';
+      '<div style="font-size:12px; color:var(--muted); margin-bottom:8px;">游戏类练习，需孩子在电脑/大屏完成；勾进「练习安排」布置给家长后才能玩。点「试玩」可预览。</div>';
     GAMES.forEach(function (g) {
       html += '<div class="list-item"><span class="icon">' + g.icon + '</span>' +
         '<div><div class="t">' + g.title + '</div><div class="s">' + g.desc + '</div></div>' +
@@ -632,13 +709,13 @@
     state.childName = cname;
     var c = $('content');
     c.innerHTML = '<h2 class="page-title">' + esc(cname) + ' 的档案</h2>' +
-      '<p class="page-sub">线上视觉训练 · 训练处方 · 自定义训练 · 回传记录</p>' +
+      '<p class="page-sub">线上视觉练习 · 练习安排 · 自定义训练 · 回传记录</p>' +
       renderGameBoard() +
       '<div class="grid-2">' +
         '<div>' +
-          '<div style="font-size:15px; font-weight:700; margin:18px 0 4px;">📋 训练处方</div>' +
+          '<div style="font-size:15px; font-weight:700; margin:18px 0 4px;">📋 练习安排</div>' +
           '<div id="rx-list"></div>' +
-          '<button class="btn btn-ghost" onclick="newRx()">＋ 新建处方</button>' +
+          '<button class="btn btn-ghost" onclick="newRx()">＋ 布置练习</button>' +
           '<div style="font-size:15px; font-weight:700; margin:18px 0 4px;">📌 自定义训练</div>' +
           '<div id="custom-list"></div>' +
           '<button class="btn btn-ghost" onclick="newCustom()">＋ 新建自定义训练</button>' +
@@ -780,12 +857,12 @@
   }
   function rxText(p, cname) {
     var projects = rxProjectsOf(p);
-    return '【瞳治视觉训练助手 · 训练处方】\n' +
+    return '【瞳治 · 今日作业】\n' +
       '孩子：' + (cname || '') + '\n' +
       '日期：' + (p.title || '') + '\n' +
       projects.map(function (pr, i) { return (i + 1) + '. ' + pr.title + '：' + (pr.param || ''); }).join('\n') +
       (p.note ? '\n注意：' + p.note : '') +
-      '\n—— 练完记得回传（拍照/录像/记命中）发给视训师。';
+      '\n—— 请按视训师布置的练习完成，练完回传（拍照/录像/记命中）。';
   }
 
   // 视训师：孩子档案里列出处方
@@ -796,18 +873,18 @@
     var res = await sb.from('prescriptions').select('*').eq('child_id', state.childId).order('created_at', { ascending: false });
     if (res.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(res.error.message)) + '</div>'; return; }
     box.innerHTML = '';
-    if (!res.data.length) { box.innerHTML = '<div class="empty">还没有处方，点下方「＋ 新建处方」。</div>'; return; }
+    if (!res.data.length) { box.innerHTML = '<div class="empty">还没有练习安排，点下方「＋ 布置练习」。</div>'; return; }
     res.data.forEach(function (p) {
       var titles = rxProjectsOf(p).map(function (x) { return x.title; }).join(' / ');
       box.innerHTML +=
-        '<div class="list-item"><div><div class="t">' + esc(p.title || '处方') + '</div>' +
+        '<div class="list-item"><div><div class="t">' + esc(p.title || '练习安排') + '</div>' +
         '<div class="s">' + esc(titles) + '</div></div>' +
         '<button class="btn btn-ghost btn-small" onclick="delRx(\'' + p.id + '\')">删除</button></div>';
     });
   }
 
   async function delRx(id) {
-    if (!confirm('确定删除这张处方？')) return;
+    if (!confirm('确定删除这份练习安排？')) return;
     var res = await sb.from('prescriptions').delete().eq('id', id);
     if (res.error) { toast('删除失败：' + errText(res.error.message), true); return; }
     renderRxList();
@@ -817,12 +894,12 @@
   function newRx() {
     var c = $('content');
     c.innerHTML =
-      '<h2 class="page-title">新建处方</h2>' +
+      '<h2 class="page-title">布置练习</h2>' +
       '<p class="page-sub">勾选项目、改参数、写注意事项，保存后家长在手机上就能看到</p>' +
       '<div id="rx-projects"></div>' +
       '<div class="card"><h2>📝 注意事项</h2>' +
       '<textarea id="rx-note" placeholder="如：单眼时遮另一只眼；练完拍照回传…"></textarea></div>' +
-      '<button class="btn btn-primary" id="rx-gen">生成处方卡</button>' +
+      '<button class="btn btn-primary" id="rx-gen">生成练习安排</button>' +
       '<div class="rx-preview" id="rx-preview" style="display:none;"></div>' +
       '<button class="btn btn-primary" id="rx-save" style="display:none;">保存到档案</button>' +
       '<button class="btn btn-ghost" onclick="openChild(\'' + state.childId + '\')">返回</button>';
@@ -865,7 +942,7 @@
       child_id: state.childId, title: todayStrCN(), items: JSON.stringify(draft.projects), note: draft.note
     });
     if (res.error) { toast('保存失败：' + errText(res.error.message), true); return; }
-    toast('处方已保存，家长能看到啦！');
+    toast('练习安排已保存，家长能看到啦！');
     openChild(state.childId);
   }
 
@@ -875,32 +952,35 @@
     if (!box) return;
     var res = await sb.from('prescriptions').select('*');
     if (res.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(res.error.message)) + '</div>'; return; }
-    if (!res.data.length) { box.innerHTML = '<div class="empty">视训师还没有开处方</div>'; return; }
+    if (!res.data.length) { box.innerHTML = '<div class="empty">视训师还没有布置今日作业</div>'; return; }
     var nameOf = {};
     children.forEach(function (k) { nameOf[k.id] = k.name; });
     res.data.sort(function (a, b) { return new Date(b.created_at) - new Date(a.created_at); }).forEach(function (p) {
       var titles = rxProjectsOf(p).map(function (x) { return x.title; }).join(' / ');
       box.innerHTML +=
-        '<div class="list-item" style="cursor:pointer;" onclick="viewRx(\'' + p.id + '\')">' +
+        '<div class="list-item">' +
           '<span class="icon">📋</span>' +
-          '<div><div class="t">' + esc(nameOf[p.child_id] || '孩子') + ' · ' + esc(p.title || '处方') + '</div>' +
+          '<div><div class="t">' + esc(nameOf[p.child_id] || '孩子') + ' · ' + esc(p.title || '今日作业') + '</div>' +
           '<div class="s">' + esc(titles) + '</div></div>' +
-          '<span class="chev">›</span>' +
+          '<button type="button" class="btn btn-primary btn-small" onclick="viewRx(\'' + p.id + '\')">今日作业</button>' +
         '</div>';
     });
   }
 
   async function viewRx(id) {
     var res = await sb.from('prescriptions').select('*').eq('id', id).single();
-    if (res.error || !res.data) { toast('读不到这张处方', true); return; }
+    if (res.error || !res.data) { toast('读不到这份今日作业', true); return; }
     var p = res.data;
     var cname = '';
     var cr = await sb.from('children').select('name').eq('id', p.child_id).single();
     if (cr.data) cname = cr.data.name;
     var c = $('content');
-    c.innerHTML = '<h2 class="page-title">📋 训练处方</h2>' +
+    c.innerHTML = '<h2 class="page-title">今日作业</h2>' +
+      '<div class="task-note">' + TASK_MAIN + '</div>' +
       '<div class="card"><div class="rx-preview" id="rx-detail-text" style="margin:0; border:none; background:none; padding:4px;"></div></div>' +
       '<div id="rx-game-actions"></div>' +
+      '<button type="button" class="btn btn-ghost" onclick="showSplitHint(\'task-split\')">稍后再练</button>' +
+      '<div class="task-split" id="task-split" hidden>' + TASK_SPLIT + '</div>' +
       '<button class="btn btn-ghost" onclick="home()">返回</button>';
     $('rx-detail-text').textContent = rxText(p, cname);
     // 处方里勾了线上训练游戏 → 家长在这里启动（需大屏）
@@ -914,7 +994,7 @@
       if (isBig) {
         ga.innerHTML += '<div class="card" style="margin-top:12px;"><div class="t">' + gm.icon + ' ' + esc(gm.title) + '</div>' +
           '<div class="s" style="margin:4px 0 10px;">' + esc(gm.desc) + '</div>' +
-          '<button class="btn btn-primary" onclick="launchGame(\'' + g.key + '\',\'' + p.child_id + '\',\'' + esc(cname) + '\')">▶ 开始训练</button></div>';
+          '<button class="btn btn-primary" onclick="launchGame(\'' + g.key + '\',\'' + p.child_id + '\',\'' + esc(cname) + '\')">按视训师布置的练习开始</button></div>';
       } else {
         ga.innerHTML += '<div class="card" style="margin-top:12px; font-size:13px; color:var(--muted);">💻 「' + esc(gm.title) + '」需要在电脑或投屏大屏上完成，请换大屏打开</div>';
       }
@@ -1273,7 +1353,7 @@
     if (!pursuit.running && !hart.running) { closeGame(); return; }
     var g = pursuit.running ? pursuit : hart;
     if (g.preview) { closeGame(); return; }
-    if (!confirm('确定退出训练吗？本次训练时长不会上传')) return;
+    if (!confirm(TASK_SPLIT + '\n\n现在先停下来的话，本次练习时长不会上传。')) return;
     closeGame();
   }
 
@@ -1798,12 +1878,14 @@
     var cr = await sb.from('children').select('*').eq('family_id', fid).order('created_at');
     var kids = cr.data || [];
 
-    // 顶部以「今天练什么」为主角：处方 + 自定义训练在前，孩子回传降到日常区
+    // 顶部以今日作业为主角：视训师布置的练习在前，孩子回传降到日常区
     c.innerHTML =
       '<h2 class="page-title">我的家庭' + (fam.data ? '：' + esc(fam.data.name) : '') + '</h2>' +
-      '<p class="page-sub">今天练什么，看下面视训师布置的任务 👇</p>' +
-      '<div class="sect">📋 今日训练 · 处方</div>' +
+      '<div class="task-note">' + TASK_MAIN + '</div>' +
+      '<div class="sect">今日作业</div>' +
       '<div id="rx-home-list"></div>' +
+      '<button type="button" class="btn btn-ghost" onclick="showSplitHint(\'home-split\')">稍后再练</button>' +
+      '<div class="task-split" id="home-split" hidden>' + TASK_SPLIT + '</div>' +
       '<div class="sect">📌 自定义训练</div>' +
       '<div id="custom-home-list"></div>' +
       '<div class="sect">👶 孩子 · 日常回传</div>' +
