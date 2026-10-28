@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>瞳治视觉训练助手 · 云端版</title>
 <style>
   /* ============ 设计令牌 ============ */
@@ -55,6 +55,12 @@
     border:1px solid var(--line); border-radius:12px; background:#fff;
   }
   input:focus{ outline:none; border-color:var(--primary); }
+  button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible{
+    outline:2px solid var(--primary); outline-offset:2px;
+  }
+  @media (prefers-reduced-motion:reduce){
+    #content{ animation:none !important; }
+  }
 
   /* ============ 按钮 ============ */
   .btn{ width:100%; padding:14px; font-size:16px; font-weight:600; border:none; border-radius:14px; cursor:pointer; margin-top:14px; }
@@ -69,11 +75,15 @@
   .msg.err{ color:var(--bad); } .msg.ok{ color:var(--success); }
   .toast{ position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(16px); background:var(--primary-dark); color:#fff; padding:12px 18px; border-radius:12px; font-size:14px; max-width:88vw; box-shadow:0 8px 24px rgba(20,60,80,.28); opacity:0; transition:opacity .25s, transform .25s; z-index:9999; pointer-events:none; text-align:center; }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  /* 练习层打开时，提示改到顶部，避免挡住哈特表底部的对/错 */
+  body.game-open .toast{ top:18px; bottom:auto; transform:translateX(-50%) translateY(-16px); }
+  body.game-open .toast.show{ transform:translateX(-50%) translateY(0); }
   .toast.err{ background:var(--bad); }
 
   /* ============ 训练处方 ============ */
   textarea{ width:100%; padding:12px; font-size:15px; color:var(--text); border:1px solid var(--line); border-radius:12px; background:#fff; min-height:90px; resize:vertical; font-family:inherit; }
   textarea:focus{ outline:none; border-color:var(--primary); }
+  textarea:focus-visible{ outline:2px solid var(--primary); outline-offset:2px; }
   .rx-check{ display:flex; align-items:center; gap:10px; margin:0 0 8px; font-size:15px; font-weight:600; color:var(--text); cursor:pointer; }
   .rx-check input[type=checkbox]{ width:18px; height:18px; margin:0; accent-color:var(--primary); flex-shrink:0; }
   .rx-param{ margin:0; }
@@ -224,7 +234,20 @@
   .game-view.pfs .hart-char.on{ color:#ff7b7b; text-shadow:0 0 8px rgba(255,120,120,.7); }
   .game-view.pfs.is-hart .p-act{ display:none; }
   /* 哈特表「对/错」判断栏：固定底部居中，不遮挡视标 */
-  .hart-judge{ position:fixed; left:50%; bottom:16px; transform:translateX(-50%); z-index:70; display:flex; gap:44px; }
+  .hart-judge-wrap{ position:fixed; left:50%; bottom:16px; transform:translateX(-50%); z-index:70; display:flex; flex-direction:column; align-items:center; gap:8px; max-width:96vw; }
+  .hart-judge{ display:flex; gap:44px; }
+  .hart-score{ background:rgba(255,255,255,.94); color:var(--text); border-radius:999px; padding:6px 14px; font-size:13px; font-weight:700; box-shadow:0 4px 14px rgba(0,0,0,.16); }
+  .game-view.pfs .hart-score{ background:rgba(0,0,0,.55); color:#fff; }
+  .hart-exit-fs{ display:none; }
+  .game-view.pfs.is-hart .hart-exit-fs{
+    display:inline-flex; align-items:center; justify-content:center;
+    position:fixed; right:16px; bottom:16px; z-index:80;
+    min-height:44px; padding:0 14px; border:none; border-radius:999px;
+    background:rgba(255,255,255,.94); color:var(--text); font-size:14px; font-weight:700; cursor:pointer;
+    box-shadow:0 4px 14px rgba(0,0,0,.28);
+  }
+  .practice-sheet .page-sub{ margin:8px 0 0; }
+  .practice-actions .btn{ margin-top:10px; }
   .hart-judge .hart-btn{ margin:0; min-width:118px; min-height:56px; padding:0 28px; font-size:18px; font-weight:700; border:none; border-radius:16px; cursor:pointer; color:#fff; box-shadow:0 6px 20px rgba(0,0,0,.28); }
   .hart-judge .hart-btn:active{ transform:scale(.96); }
   .hart-judge .hart-btn.yes{ background:var(--success); }
@@ -235,7 +258,8 @@
   }
   /* 窄屏下把「结束/全屏」抬到对/错栏上方，避免水平重叠 */
   @media (max-width:520px){
-    .game-view.is-hart .p-act{ bottom:88px; }
+    .game-view.is-hart .p-act,
+    .game-view.pfs.is-hart .hart-exit-fs{ bottom:128px; }
   }
   /* ============ 桌面端布局（可扩展框架，≥900px） ============ */
   @media (min-width:900px){
@@ -275,8 +299,15 @@
   .fb-main .t{ font-size:15px; font-weight:600; }
   .fb-main .s{ font-size:12px; color:var(--muted); margin-top:2px; }
   .fb-badge{ flex-shrink:0; margin-left:auto; font-size:12px; font-weight:700; border-radius:999px; padding:6px 10px; line-height:1.3; text-align:center; }
-  .fb-badge.done{ background:#e5f6ec; color:var(--success); }
-  .fb-badge.todo{ background:#eef4f6; color:var(--muted); }
+  .fb-badge.done{ background:#e5f6ec; color:#1f7a4d; font-weight:700; }
+  .fb-badge.todo{ background:#fff; color:#0f5a68; border:1.5px solid #f2a33c; font-weight:700; }
+  .fb-note-more{ font-size:12px; color:var(--muted); line-height:1.6; margin:0 0 8px; }
+  .fb-note-more[hidden]{ display:none !important; }
+  .fb-tab.is-quiet{ opacity:.55; }
+  .fb-empty .linkbtn{ display:inline-flex; align-items:center; justify-content:center; min-height:44px; margin-top:4px; }
+  .task-fold{ margin:8px 0 4px; }
+  .task-fold summary{ cursor:pointer; font-weight:700; font-size:15px; min-height:44px; display:flex; align-items:center; }
+  .fb-main .s, .fb-sum{ font-variant-numeric:tabular-nums; }
   .fb-switch, .fb-metric{ display:flex; gap:8px; }
   .fb-switch{ margin:12px 0 2px; }
   .fb-tab{ flex:1; border:none; border-radius:12px; min-height:44px; padding:8px 10px; font-size:13px; font-weight:600; cursor:pointer; background:#eef4f6; color:var(--muted); }
@@ -325,8 +356,8 @@
       <input id="password" type="password" placeholder="••••••" autocomplete="current-password">
       <label>注册身份（仅注册时生效）</label>
       <div class="stage-tabs">
-        <button type="button" class="stage-tab active" id="role-parent-btn">👨‍👩‍👧 家长</button>
-        <button type="button" class="stage-tab" id="role-therapist-btn">👁️ 视训师</button>
+        <button type="button" class="stage-tab active" id="role-parent-btn" aria-pressed="true">👨‍👩‍👧 家长</button>
+        <button type="button" class="stage-tab" id="role-therapist-btn" aria-pressed="false">👁️ 视训师</button>
       </div>
       <div id="code-field" style="display:none;">
         <label>视训师授权码</label>
@@ -405,13 +436,13 @@
 <!-- 训练游戏全屏层（电脑/大屏专用） -->
 <div id="game-view" class="game-view">
   <div class="game-head">
-    <button class="game-back" id="game-back">✕ 退出训练</button>
+    <button class="game-back" id="game-back">✕ 退出练习</button>
   </div>
   <div id="game-body"></div>
 </div>
 
 <script src="supabase.js"></script>
-<script src="feedback.js?v=1"></script>
+<script src="feedback.js?v=3"></script>
 <script>
   var SUPABASE_URL = 'https://ucjgcybsvrkfgkszcygq.supabase.co';
   var ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjamdjeWJzdnJrZmdrc3pjeWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDY5ODIsImV4cCI6MjEwNzQ4Mjk4Mn0.tMtklRCxDjtO5Lb5cMjqg_LeB5cUxfVOZxxwNRO0aDw';
@@ -427,6 +458,10 @@
   function showSplitHint(id) {
     var el = $(id);
     if (el) el.hidden = false;
+  }
+  function emptyNext(reason) {
+    return '<div class="fb-empty">' + esc(reason) +
+      '<div><button type="button" class="linkbtn" data-open-help>关于 / 帮助</button></div></div>';
   }
   function openHelp() {
     var p = $('help-panel');
@@ -587,6 +622,8 @@
     signupRole = r;
     $('role-parent-btn').classList.toggle('active', r === 'parent');
     $('role-therapist-btn').classList.toggle('active', r === 'therapist');
+    $('role-parent-btn').setAttribute('aria-pressed', r === 'parent' ? 'true' : 'false');
+    $('role-therapist-btn').setAttribute('aria-pressed', r === 'therapist' ? 'true' : 'false');
     $('code-field').style.display = r === 'therapist' ? 'block' : 'none';
   }
   async function signUp() {
@@ -763,8 +800,8 @@
       { key: 'marsden', label: '马斯登球', icon: '🎾', desc: '三段训练视频' },
       { key: 'peripheral', label: '周边训练', icon: '🎯', desc: '命中次数 + 照片/视频' },
       { key: 'custom', label: '自定义训练', icon: '📌', desc: '教程回传照片' },
-      { key: 'pursuit', label: '追视小球', icon: '👀', desc: '眼动训练打卡' },
-      { key: 'hart', label: '哈特表', icon: '🎯', desc: '周边视野训练' }
+      { key: 'pursuit', label: '追视小球', icon: '👀', desc: (window.Feedback && Feedback.PRACTICE_COPY.pursuitCat) || '打卡回传 · 有效时长' },
+      { key: 'hart', label: '哈特表', icon: '🎯', desc: (window.Feedback && Feedback.PRACTICE_COPY.hartCat) || '打卡回传 · 有效时长与正确率' }
     ];
     for (var i = 0; i < types.length; i++) {
       var t = types[i];
@@ -800,13 +837,9 @@
       else if (r.type === 'eye') desc = '眼位照 · ' + eyeStageName(d.stage);
       else if (r.type === 'marsden') desc = '马斯登球 · ' + ((d.slots && d.slots.length) ? (d.slots.length + ' 段视频') : '视频');
       else if (r.type === 'custom') desc = '自定义训练 · ' + (d.custom_title || '回传');
-      else if (r.type === 'pursuit') {
-        var tL = { h: '左右移动', v: '上下移动', cw: '顺时针', ccw: '逆时针', hj: '左右跳跃', vj: '上下跳跃' }[d.trajectory] || '追视';
-        var sL = (typeof d.speed === 'number') ? (fmtSpeed(d.speed) + ' 档') : ({ slow: '慢速', mid: '中速', fast: '快速' }[d.speed] || '');
-        var aL = (d.amp != null) ? ('摆幅 ' + d.amp + '%') : '';
-        desc = '追视小球 · ' + tL + ' · ' + sL + (aL ? ' · ' + aL : '') + ' · ' + Math.round((d.actual || 0) / 60) + ' 分钟';
+      else if (r.type === 'pursuit' || r.type === 'hart') {
+        desc = window.Feedback ? Feedback.recordCaption(r.type, d) : (r.type === 'pursuit' ? '追视小球' : '哈特表');
       }
-      else if (r.type === 'hart') desc = '哈特表 · 答对 ' + (d.correct || 0) + ' · 答错 ' + (d.wrong || 0) + ' · ' + Math.round((d.actual || 0) / 60) + ' 分钟';
       else desc = r.type;
       var html = '<div class="list-item"><div><div class="t">' + esc(desc) + '</div>' +
         '<div class="s">' + fmtTime(r.created_at) + '</div>';
@@ -863,9 +896,10 @@
   ];
 
   // 线上训练游戏（大板块，只视训师可见；通过处方布置给家长后，家长才能在大屏上玩）
+  var PC = (window.Feedback && Feedback.PRACTICE_COPY) || {};
   var GAMES = [
-    { key: 'pursuit', title: '追视小球', icon: '👀', desc: '平滑追视训练：眼球跟随移动小球', param: '平滑追视 · 电脑/大屏 · 时长/球速/轨迹可调' },
-    { key: 'hart', title: '哈特表', icon: '🎯', desc: '周边视野训练：注视中心，识别放射状字符', param: '周边视野 · 电脑/大屏 · 字符随机扩散、由内到外变大' }
+    { key: 'pursuit', title: '追视小球', icon: '👀', desc: PC.pursuitDesc || '眼睛跟随小球。做很短也可以打卡，打卡即算今日完成。', param: PC.pursuitParam || '电脑/大屏 · 眼睛跟随小球 · 做很短也可以打卡' },
+    { key: 'hart', title: '哈特表', icon: '🎯', desc: PC.hartDesc || '注视中心，辨认周围字符。没有对错记录时正确率留空，不记成 0%。', param: PC.hartParam || '电脑/大屏 · 注视中心辨认字符 · 没有对错记录时正确率留空' }
   ];
   function isGameProject(key) { return GAMES.some(function (g) { return g.key === key; }); }
   function rxProjectCard(p, checked) {
@@ -888,7 +922,9 @@
       '日期：' + (p.title || '') + '\n' +
       projects.map(function (pr, i) { return (i + 1) + '. ' + pr.title + '：' + (pr.param || ''); }).join('\n') +
       (p.note ? '\n注意：' + p.note : '') +
-      '\n—— 请按视训师布置的练习完成，练完回传（拍照/录像/记命中）。';
+      '\n—— ' + (projects.some(function (pr) { return pr.key === 'pursuit' || pr.key === 'hart'; })
+        ? ((window.Feedback && Feedback.PRACTICE_COPY.rxTailLocked) || '请按视训师布置的练习完成。追视小球、哈特表在大屏上做完后打卡即可，很短也算完成；其他项目仍按原来的方式回传。')
+        : '请按视训师布置的练习完成，练完回传（拍照/录像/记命中）。');
   }
 
   // 视训师：孩子档案里列出处方
@@ -978,7 +1014,7 @@
     if (!box) return;
     var res = await sb.from('prescriptions').select('*');
     if (res.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(res.error.message)) + '</div>'; return; }
-    if (!res.data.length) { box.innerHTML = '<div class="empty">视训师还没有布置今日作业</div>'; return; }
+    if (!res.data.length) { box.innerHTML = emptyNext('视训师还没有布置今日作业'); return; }
     var nameOf = {};
     children.forEach(function (k) { nameOf[k.id] = k.name; });
     res.data.sort(function (a, b) { return new Date(b.created_at) - new Date(a.created_at); }).forEach(function (p) {
@@ -988,7 +1024,7 @@
           '<span class="icon">📋</span>' +
           '<div><div class="t">' + esc(nameOf[p.child_id] || '孩子') + ' · ' + esc(p.title || '今日作业') + '</div>' +
           '<div class="s">' + esc(titles) + '</div></div>' +
-          '<button type="button" class="btn btn-primary btn-small" onclick="viewRx(\'' + p.id + '\')">今日作业</button>' +
+          '<button type="button" class="btn btn-primary btn-small" onclick="viewRx(\'' + p.id + '\')">去做</button>' +
         '</div>';
     });
   }
@@ -1006,11 +1042,14 @@
     var fbRecs = fbRes.error ? null : (fbRes.data || []);
     var c = $('content');
     c.innerHTML = '<h2 class="page-title">今日作业</h2>' +
-      '<div class="task-note">' + TASK_MAIN + '</div>' +
-      '<div class="card"><div class="rx-preview" id="rx-detail-text" style="margin:0; border:none; background:none; padding:4px;"></div></div>' +
       '<div id="rx-game-actions"></div>' +
-      '<button type="button" class="btn btn-ghost" onclick="showSplitHint(\'task-split\')">稍后再练</button>' +
-      '<div class="task-split" id="task-split" hidden>' + TASK_SPLIT + '</div>' +
+      '<details class="task-fold" open>' +
+        '<summary>练习说明</summary>' +
+        '<div class="task-note">' + TASK_MAIN + '</div>' +
+        '<div class="card"><div class="rx-preview" id="rx-detail-text" style="margin:0; border:none; background:none; padding:4px;"></div></div>' +
+        '<button type="button" class="btn btn-ghost" onclick="showSplitHint(\'task-split\')">稍后再练</button>' +
+        '<div class="task-split" id="task-split" hidden>' + TASK_SPLIT + '</div>' +
+      '</details>' +
       '<button class="btn btn-ghost" onclick="home()">返回</button>';
     $('rx-detail-text').textContent = rxText(p, cname);
     // 练习安排里勾了线上训练游戏 → 家长在这里启动（需大屏）
@@ -1027,16 +1066,18 @@
       if (fbRecs && window.Feedback) {
         var st = Feedback.todayStatus(fbRecs, g.key, new Date());
         badge = '<span class="fb-badge ' + (st.done ? 'done' : 'todo') + '">' + esc(Feedback.badgeText(st.done, 'parent')) + '</span>';
-        if (st.done) again = '<p class="fb-cap">今天已经打过卡，还可以再做一次；多次打卡的时长会加在一起。</p>';
+        if (st.done) again = '<p class="fb-cap">' + esc(PC.taskAgain || '今天已经打过卡，还可以再做一次；多次打卡的时长会加在一起。') + '</p>';
+        else again = '<p class="fb-cap">' + esc(PC.taskShort || '做很短也可以打卡。打卡后显示「今日作业已完成」，不要求练满固定分钟。') + '</p>';
       }
       var head = '<div class="fb-inline"><div class="t">' + gm.icon + ' ' + esc(gm.title) + '</div>' + badge + '</div>';
       if (isBig) {
         ga.innerHTML += '<div class="card" style="margin-top:12px;">' + head +
-          '<div class="s" style="margin:4px 0 10px;">' + esc(gm.desc) + '</div>' + again +
-          '<button class="btn btn-primary" onclick="launchGame(\'' + g.key + '\',\'' + p.child_id + '\',\'' + esc(cname) + '\')">按视训师布置的练习开始</button></div>';
+          '<button class="btn btn-primary" onclick="launchGame(\'' + g.key + '\',\'' + p.child_id + '\',\'' + esc(cname) + '\')">' + esc(PC.start || '按视训师布置的练习开始') + '</button>' +
+          again +
+          '<div class="s" style="margin-top:8px;">' + esc(gm.desc) + '</div></div>';
       } else {
         ga.innerHTML += '<div class="card" style="margin-top:12px;">' + head +
-          '<div style="font-size:13px; color:var(--muted); margin-top:8px;">💻 「' + esc(gm.title) + '」需要在电脑或投屏大屏上完成，请换大屏打开</div>' +
+          '<div style="font-size:13px; color:var(--muted); margin-top:8px;">💻 「' + esc(gm.title) + '」' + esc(PC.needBig || '需要在电脑或投屏大屏上完成。请换到大屏后，按视训师布置的练习开始；做很短也可以打卡。') + '</div>' +
           again + '</div>';
       }
     });
@@ -1184,7 +1225,7 @@
     if (!box) return;
     var res = await sb.from('custom_projects').select('*');
     if (res.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(res.error.message)) + '</div>'; return; }
-    if (!res.data.length) { box.innerHTML = '<div class="empty">视训师还没有布置训练</div>'; return; }
+    if (!res.data.length) { box.innerHTML = emptyNext('视训师还没有布置训练'); return; }
     var nameOf = {};
     children.forEach(function (k) { nameOf[k.id] = k.name; });
     res.data.sort(function (a, b) { return new Date(b.created_at) - new Date(a.created_at); }).forEach(function (p) {
@@ -1380,83 +1421,189 @@
     if (isJumpTraj(pursuit.traj)) { stopSiren(); pursuit.lastSign = null; }
     else startSiren();
   }
-  function openGame() { $('game-view').classList.add('open'); document.body.style.overflow = 'hidden'; }
-  function closeGame() {
-    $('game-view').classList.remove('open');
-    $('game-view').classList.remove('pfs');
-    document.body.style.overflow = '';
-    if (pursuit.running) { pursuit.running = false; if (pursuit.raf) { cancelAnimationFrame(pursuit.raf); pursuit.raf = null; } }
-    if (hart.running) { hart.running = false; if (hart.raf) { cancelAnimationFrame(hart.raf); hart.raf = null; } }
+  var practiceGate = { pending: false };
+
+  function practiceCopy() {
+    return (window.Feedback && Feedback.PRACTICE_COPY) || PC || {};
+  }
+  function practiceSheet(title, bodyHtml, actionsHtml) {
+    return '<div class="game-inner practice-sheet" data-practice="sheet">' +
+      '<h2 class="page-title">' + esc(title) + '</h2>' +
+      bodyHtml +
+      '<div class="practice-actions">' + actionsHtml + '</div></div>';
+  }
+  function practiceTitle(name, cname, preview) {
+    if (preview) return practiceCopy().previewTag + ' · ' + name;
+    return name + (cname ? (' · ' + cname) : '');
+  }
+  function stopPracticeLoops() {
+    pursuit.running = false;
+    hart.running = false;
+    if (pursuit.raf) { cancelAnimationFrame(pursuit.raf); pursuit.raf = null; }
+    if (hart.raf) { cancelAnimationFrame(hart.raf); hart.raf = null; }
     stopSiren();
+  }
+  function leaveFullscreen() {
+    var gv = $('game-view');
+    if (gv) gv.classList.remove('pfs');
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        var q = document.exitFullscreen();
+        if (q && q.catch) q.catch(function () {});
+      } else if (document.webkitFullscreenElement && document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    } catch (e) {}
+  }
+  function paintLiveElapsed(seconds) {
+    var el = $('p-ctrl-title');
+    if (!el) return;
+    var label = '控制台 · 已练 ' + (window.Feedback ? Feedback.fmtDuration(Math.max(0, Math.round(seconds || 0))) : (Math.round(seconds || 0) + ' 秒'));
+    if (el.textContent !== label) el.textContent = label;
+  }
+  function showPracticeMsg(text) {
+    var msg = $('practice-msg');
+    if (!msg) return;
+    msg.hidden = false;
+    msg.textContent = text;
+  }
+  function openGame() {
+    $('game-view').classList.add('open');
+    document.body.classList.add('game-open');
+    document.body.style.overflow = 'hidden';
+    var back = $('game-back');
+    if (back) back.textContent = practiceCopy().exit || '✕ 退出练习';
+  }
+  function leavePractice() {
+    practiceGate.pending = false;
+    stopPracticeLoops();
+    leaveFullscreen();
+    var gv = $('game-view');
+    gv.classList.remove('open', 'pfs', 'is-hart');
+    document.body.classList.remove('game-open');
+    document.body.style.overflow = '';
+    if ((pursuit.preview || hart.preview) && state.profile && state.profile.role === 'therapist' && state.childId) {
+      openChild(state.childId);
+      return;
+    }
     home();
   }
+  function closeGame() { leavePractice(); }
   function exitGame() {
-    if (!pursuit.running && !hart.running) { closeGame(); return; }
-    var g = pursuit.running ? pursuit : hart;
-    if (g.preview) { closeGame(); return; }
-    if (!confirm(TASK_SPLIT + '\n\n现在先停下来的话，本次练习时长不会上传。')) return;
-    closeGame();
+    var copy = practiceCopy();
+    if (pursuit.running || hart.running) {
+      var g = pursuit.running ? pursuit : hart;
+      if (g.preview) { leavePractice(); return; }
+      if (!confirm(copy.exitConfirm || '现在离开的话，这次不会打卡，时长也不会回传。')) return;
+      leavePractice();
+      return;
+    }
+    if (practiceGate.pending && !confirm(copy.skipConfirm || '这次还没打卡，不会记入今日完成。确定返回？')) return;
+    leavePractice();
   }
 
   function openPursuitConfig(cid, cname, preview) {
     if (!preview) state.childId = cid;
-    pursuit.cid = cid; pursuit.cname = cname; pursuit.preview = !!preview;
-    pursuit.dur = 180; pursuit.speed = 5; pursuit.traj = 'h'; pursuit.amp = 100;
+    hart.preview = false;
+    hart.running = false;
+    pursuit.cid = cid;
+    pursuit.cname = cname || '';
+    pursuit.preview = !!preview;
+    pursuit.dur = 180;
+    pursuit.speed = 5;
+    pursuit.traj = 'h';
+    pursuit.amp = 100;
+    pursuit.elapsed = 0;
+    pursuit.running = false;
+    pursuit.lastSign = null;
+    pursuit.jumpCount = 0;
+    practiceGate.pending = false;
+    stopSiren();
+    showPursuitReady();
+  }
+  function againPursuit() {
+    practiceGate.pending = false;
+    pursuit.elapsed = 0;
+    pursuit.running = false;
+    pursuit.lastSign = null;
+    pursuit.jumpCount = 0;
+    showPursuitReady();
+  }
+  function showPursuitReady() {
+    stopPracticeLoops();
+    leaveFullscreen();
+    $('game-view').classList.remove('is-hart');
+    var copy = practiceCopy();
+    var lead = pursuit.preview ? copy.previewReady : copy.pursuitReady;
+    $('game-body').innerHTML = practiceSheet(
+      practiceTitle('追视小球', pursuit.preview ? '' : pursuit.cname, pursuit.preview),
+      '<div class="task-note">' + esc(lead || '') + '</div><p class="page-sub">' + esc(copy.discomfort || '') + '</p>',
+      '<button class="btn btn-primary" id="practice-start" type="button">' + esc(pursuit.preview ? copy.previewStart : copy.start) + '</button>' +
+      '<button class="btn btn-ghost" id="practice-back" type="button">' + esc(copy.back || '返回') + '</button>'
+    );
+    $('practice-start').onclick = beginPursuit;
+    $('practice-back').onclick = leavePractice;
+    openGame();
+  }
+  function beginPursuit() {
+    practiceGate.pending = false;
+    pursuit.startedAt = performance.now() - (pursuit.elapsed || 0) * 1000;
+    pursuit.running = true;
+    mountPursuitPlay();
+    initAudio();
+    if (isJumpTraj(pursuit.traj)) stopSiren(); else startSiren();
+    pursuit.raf = requestAnimationFrame(pursuitTick);
+  }
+  function mountPursuitPlay() {
+    var copy = practiceCopy();
+    var trajs = [['h', '左右'], ['v', '上下'], ['cw', '顺时针'], ['ccw', '逆时针'], ['hj', '左右跳'], ['vj', '上下跳']];
+    var trajHtml = trajs.map(function (it) {
+      return '<button type="button" class="stage-tab' + (pursuit.traj === it[0] ? ' active' : '') + '" data-v="' + it[0] + '">' + it[1] + '</button>';
+    }).join('');
     var g = $('game-body');
     g.innerHTML = '<div class="game-wide">' +
       '<div class="pursuit-area" id="p-area"><div class="pursuit-ball" id="p-ball"></div></div>' +
-      '<div class="small-note">眼睛跟着小球动，头不要动</div>' +
+      '<div class="small-note">' + esc(copy.pursuitLive || '') + '</div>' +
       '<div class="p-ctrl dock-h" id="p-ctrl" style="left:50%; bottom:16px; transform:translateX(-50%);">' +
         '<div class="p-ctrl-head" id="p-ctrl-head">' +
-          '<span class="p-ctrl-title">🎛️ 控制台</span>' +
-          '<button class="p-ctrl-hide" id="p-ctrl-hide" title="收起">—</button>' +
+          '<span class="p-ctrl-title" id="p-ctrl-title">控制台</span>' +
+          '<button class="p-ctrl-hide" id="p-ctrl-hide" title="收起" type="button">—</button>' +
         '</div>' +
         '<div class="p-ctrl-body">' +
           '<div class="p-ctrl-item">' +
             '<div class="p-ctrl-item-label">⚡ 球速</div>' +
             '<div class="speed-slider"><span class="speed-label">慢</span>' +
-            '<input type="range" id="p-speed" min="1" max="10" step="0.1" value="5">' +
+            '<input type="range" id="p-speed" min="1" max="10" step="0.1" value="' + pursuit.speed + '">' +
             '<span class="speed-label">快</span></div>' +
-            '<b class="p-ctrl-val" id="p-speed-val">5 档</b>' +
+            '<b class="p-ctrl-val" id="p-speed-val">' + fmtSpeed(pursuit.speed) + ' 档</b>' +
           '</div>' +
           '<div class="p-ctrl-item">' +
             '<div class="p-ctrl-item-label">🔁 轨迹</div>' +
-            '<div class="stage-tabs" id="p-traj">' +
-              '<button class="stage-tab active" data-v="h">左右</button>' +
-              '<button class="stage-tab" data-v="v">上下</button>' +
-              '<button class="stage-tab" data-v="cw">顺时针</button>' +
-              '<button class="stage-tab" data-v="ccw">逆时针</button>' +
-              '<button class="stage-tab" data-v="hj">左右跳</button>' +
-              '<button class="stage-tab" data-v="vj">上下跳</button></div>' +
+            '<div class="stage-tabs" id="p-traj">' + trajHtml + '</div>' +
           '</div>' +
           '<div class="p-ctrl-item">' +
             '<div class="p-ctrl-item-label">📏 摆幅</div>' +
             '<div class="speed-slider"><span class="speed-label">小</span>' +
-            '<input type="range" id="p-amp" min="10" max="100" step="1" value="100">' +
+            '<input type="range" id="p-amp" min="10" max="100" step="1" value="' + pursuit.amp + '">' +
             '<span class="speed-label">大</span></div>' +
-            '<b class="p-ctrl-val" id="p-amp-val">100%</b>' +
+            '<b class="p-ctrl-val" id="p-amp-val">' + pursuit.amp + '%</b>' +
           '</div>' +
         '</div>' +
       '</div>' +
-      '<button class="p-ctrl-toggle" id="p-ctrl-toggle" style="display:none;">🎛️ 控制台</button>' +
+      '<button class="p-ctrl-toggle" id="p-ctrl-toggle" type="button" style="display:none;">🎛️ 控制台</button>' +
       '<div class="p-act">' +
-        '<button class="btn btn-ghost" id="p-sound">🔊 音效开</button>' +
-        '<button class="btn btn-ghost" id="p-fs">🔲 放大全屏</button>' +
-        '<button class="btn btn-ghost" id="p-stop">⏹ 结束训练</button>' +
+        '<button class="btn btn-ghost" id="p-sound" type="button">' + (soundOn ? '🔊 音效开' : '🔇 音效关') + '</button>' +
+        '<button class="btn btn-ghost" id="p-fs" type="button">🔲 放大全屏</button>' +
+        '<button class="btn btn-ghost" id="p-stop" type="button">⏹ ' + esc(copy.end || '结束这次练习') + '</button>' +
       '</div></div>';
-
-    function bindGroup(id, key) {
-      var btns = $(id).querySelectorAll('.stage-tab');
-      for (var i = 0; i < btns.length; i++) {
-        btns[i].onclick = function () {
-          for (var j = 0; j < btns.length; j++) btns[j].classList.toggle('active', btns[j] === this);
-          var v = this.getAttribute('data-v');
-          pursuit[key] = (key === 'dur') ? parseInt(v, 10) : v;
-          if (key === 'traj') onTrajChange();
-        };
-      }
+    var btns = $('p-traj').querySelectorAll('.stage-tab');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].onclick = function () {
+        for (var j = 0; j < btns.length; j++) btns[j].classList.toggle('active', btns[j] === this);
+        pursuit.traj = this.getAttribute('data-v');
+        onTrajChange();
+      };
     }
-    bindGroup('p-traj', 'traj');
     $('p-speed').oninput = function () {
       pursuit.speed = parseFloat(this.value);
       $('p-speed-val').textContent = fmtSpeed(pursuit.speed) + ' 档';
@@ -1473,15 +1620,8 @@
     initCtrlDrag();
     initToggleDrag();
     $('game-view').classList.remove('is-hart');
-
-    initAudio();
-    pursuit.lastSign = null; pursuit.jumpCount = 0;
     openGame();
-    pursuit.elapsed = 0;
-    pursuit.startedAt = performance.now();
-    pursuit.running = true;
-    if (isJumpTraj(pursuit.traj)) stopSiren(); else startSiren();
-    pursuit.raf = requestAnimationFrame(pursuitTick);
+    paintLiveElapsed(pursuit.elapsed);
   }
 
   function togglePursuitFs() { toggleFs(); }
@@ -1576,6 +1716,7 @@
     var area = $('p-area'), ball = $('p-ball');
     if (!area || !ball) { pursuit.running = false; return; }
     pursuit.elapsed = (now - pursuit.startedAt) / 1000;
+    paintLiveElapsed(pursuit.elapsed);
     var W = area.clientWidth, H = area.clientHeight;
     var cx = W / 2, cy = H / 2, R = (ball.offsetWidth || 44) / 2;
     var cycle = 5 - 0.4 * pursuit.speed;   // 档位 1(慢≈4.6s) ~ 10(快≈1s)
@@ -1607,40 +1748,98 @@
     pursuit.running = false;
     if (pursuit.raf) { cancelAnimationFrame(pursuit.raf); pursuit.raf = null; }
     stopSiren();
-    $('game-view').classList.remove('pfs');
-    var actual = Math.round(pursuit.elapsed);
+    leaveFullscreen();
+    showPursuitStop();
+  }
+
+  function showPursuitStop() {
+    var copy = practiceCopy();
+    practiceGate.pending = !pursuit.preview;
+    var data = window.Feedback
+      ? Feedback.pursuitRecordData(pursuit)
+      : { speed: pursuit.speed, amp: pursuit.amp, trajectory: pursuit.traj, actual: Math.max(0, Math.round(pursuit.elapsed || 0)) };
+    var report = window.Feedback ? Feedback.sessionReport('pursuit', data) : { durationText: '有效时长 ' + data.actual + ' 秒' };
     var trajL = { h: '左右移动', v: '上下移动', cw: '顺时针', ccw: '逆时针', hj: '左右跳跃', vj: '上下跳跃' }[pursuit.traj] || '';
-    var speedL = fmtSpeed(pursuit.speed) + ' 档';
-    var g = $('game-body');
-    var title = pursuit.preview ? '试玩结束 ✅' : '训练完成 ✅';
-    var action = pursuit.preview
-      ? '<button class="btn btn-ghost" id="p-close">🔙 返回</button>'
-      : '<button class="btn btn-primary" id="p-checkin">打卡上传给视训师</button>';
-    g.innerHTML = '<div class="game-inner">' +
-      '<h2 class="page-title">' + title + '</h2>' +
-      '<div class="card" style="line-height:2.1;">' +
-        '<div>轨迹：' + trajL + '</div>' +
-        '<div>球速：' + speedL + '</div>' +
-        '<div>摆幅：' + (pursuit.amp || 100) + '%</div>' +
-        '<div>实际完成：' + Math.floor(actual / 60) + ' 分 ' + (actual % 60) + ' 秒</div>' +
-      '</div>' +
-      action + '</div>';
-    if (pursuit.preview) $('p-close').onclick = closeGame;
-    else $('p-checkin').onclick = checkInPursuit;
+    var actions = pursuit.preview
+      ? '<button class="btn btn-primary" id="practice-back" type="button">' + esc(copy.back || '返回') + '</button>'
+      : '<button class="btn btn-primary" id="p-checkin" type="button">' + esc(copy.checkin || '打卡，记为今日完成') + '</button>' +
+        '<button class="btn btn-ghost" id="practice-resume" type="button">' + esc(copy.resume || '继续这次练习') + '</button>' +
+        '<button class="btn btn-ghost" id="practice-skip" type="button">' + esc(copy.skip || '先不打卡，返回') + '</button>' +
+        '<div class="msg err" id="practice-msg" hidden></div>';
+    $('game-body').innerHTML = practiceSheet(
+      pursuit.preview ? (copy.previewStopTitle || '试玩结束') : (copy.stopTitle || '这次先停在这里'),
+      '<div class="task-note">' + esc(pursuit.preview ? copy.previewStopLead : copy.stopLead) + '</div>' +
+      '<div class="card" style="line-height:1.9;">' +
+        '<div>' + esc(report.durationText) + '</div>' +
+        '<div>轨迹：' + esc(trajL) + '</div>' +
+        '<div>球速：' + esc(fmtSpeed(pursuit.speed)) + ' 档</div>' +
+        '<div>摆幅：' + esc(String(pursuit.amp || 100)) + '%</div>' +
+        '<div class="page-sub">' + esc(copy.pursuitNoAccuracy || '') + '</div>' +
+      '</div>',
+      actions
+    );
+    if (pursuit.preview) $('practice-back').onclick = leavePractice;
+    else {
+      $('p-checkin').onclick = checkInPursuit;
+      $('practice-resume').onclick = beginPursuit;
+      $('practice-skip').onclick = function () {
+        if (!confirm(copy.skipConfirm || '这次还没打卡，不会记入今日完成。确定返回？')) return;
+        leavePractice();
+      };
+    }
   }
 
   async function checkInPursuit() {
-    if (pursuit.preview || !pursuit.cid) { closeGame(); return; }
+    var copy = practiceCopy();
     var btn = $('p-checkin');
-    btn.disabled = true; btn.textContent = '上传中…';
+    if (pursuit.preview || !pursuit.cid) {
+      showPracticeMsg(copy.noChild || '没有关联到孩子，这次没法打卡。');
+      toast(copy.noChild || '没有关联到孩子，这次没法打卡。', true);
+      return;
+    }
+    if (btn) { btn.disabled = true; btn.textContent = copy.uploading || '打卡上传中…'; }
+    var data = window.Feedback
+      ? Feedback.pursuitRecordData(pursuit)
+      : { speed: pursuit.speed, amp: pursuit.amp, trajectory: pursuit.traj, actual: Math.max(0, Math.round(pursuit.elapsed || 0)) };
     var res = await sb.from('records').insert({
       child_id: pursuit.cid,
       type: 'pursuit',
-      data: { speed: pursuit.speed, amp: pursuit.amp, trajectory: pursuit.traj, actual: Math.round(pursuit.elapsed) }
+      data: data
     });
-    if (res.error) { toast('打卡失败：' + errText(res.error.message), true); btn.disabled = false; btn.textContent = '打卡上传给视训师'; return; }
-    toast('打卡成功！视训师能看到啦');
-    closeGame();
+    if (res.error) {
+      var err = (copy.fail || '这次还没记上。') + ' ' + errText(res.error.message);
+      showPracticeMsg(err);
+      toast('打卡失败：' + errText(res.error.message), true);
+      if (btn) { btn.disabled = false; btn.textContent = copy.checkin || '打卡，记为今日完成'; }
+      return;
+    }
+    practiceGate.pending = false;
+    showPracticeDone('pursuit', data);
+  }
+
+  function showPracticeDone(type, data) {
+    var copy = practiceCopy();
+    var report = window.Feedback ? Feedback.sessionReport(type, data) : { durationText: '', accuracyText: '', accuracy: null };
+    var extra = '';
+    if (type === 'hart') {
+      extra = '<div>' + esc(report.accuracyText) + '</div>';
+      if (report.accuracy == null) extra += '<div class="page-sub">' + esc(copy.noJudgeExtra || '') + '</div>';
+    } else {
+      extra = '<div class="page-sub">' + esc(copy.pursuitNoAccuracy || '') + '</div>';
+    }
+    $('game-body').innerHTML = practiceSheet(
+      copy.doneTitle || '今日作业已完成',
+      '<div class="task-note">' + esc(copy.doneLead || '') + '</div>' +
+      '<div class="card" style="line-height:1.9;">' +
+        '<div>' + esc(report.durationText) + '</div>' +
+        extra +
+        '<div class="page-sub">' + esc(copy.againLead || '') + '</div>' +
+      '</div>',
+      '<button class="btn btn-primary" id="practice-home" type="button">' + esc(copy.homeBtn || '回到首页看今日完成') + '</button>' +
+      '<button class="btn btn-ghost" id="practice-again" type="button">' + esc(copy.again || '再练一次') + '</button>'
+    );
+    $('practice-home').onclick = leavePractice;
+    $('practice-again').onclick = type === 'hart' ? againHart : againPursuit;
   }
 
   // ---------- 线上训练 · 哈特表（放射状周边视野表） ----------
@@ -1658,11 +1857,38 @@
     return [0, 45, 90, 135, 180, 225, 270, 315];        // 全部 8 方向
   }
 
+  function paintHartScore() {
+    var el = $('hart-score');
+    if (!el) return;
+    var copy = practiceCopy();
+    var correct = hart.correct || 0;
+    var wrong = hart.wrong || 0;
+    if (correct + wrong <= 0) {
+      el.textContent = copy.hartLiveEmpty || '还没有对错记录，正确率会留空';
+      return;
+    }
+    var report = window.Feedback ? Feedback.sessionReport('hart', { correct: correct, wrong: wrong, actual: 0 }) : null;
+    el.textContent = '对 ' + correct + ' · 错 ' + wrong + (report ? (' · ' + report.accuracyText) : '');
+  }
+
   function buildHart() {
     var area = $('hart-area');
     if (!area) return;
     var W = area.clientWidth, H = area.clientHeight;
-    if (!W || !H) return;
+    if (!W || !H) {
+      hart.chars = [];
+      hart.target = '';
+      hart.targetIdx = -1;
+      if ((hart.layoutTries || 0) < 8) {
+        hart.layoutTries = (hart.layoutTries || 0) + 1;
+        requestAnimationFrame(buildHart);
+        return;
+      }
+      area.innerHTML = '<div class="empty">' + esc(practiceCopy().hartRebuildEmpty || '') + '</div>';
+      paintHartScore();
+      return;
+    }
+    hart.layoutTries = 0;
     var cx = W / 2, cy = H / 2;
     var set = hartCharset(hart.charset);
     var dirs = hartDirs(hart.dirMode);
@@ -1701,6 +1927,7 @@
     }
     area.innerHTML = html;
     pickHartTarget();
+    paintHartScore();
   }
 
   function pickHartTarget() {
@@ -1718,13 +1945,19 @@
 
   function judgeHart(ok) {
     if (!hart.running) return;
+    if (hart.targetIdx < 0 || !hart.chars.length) {
+      toast(practiceCopy().hartNoTarget || '字符还没准备好，这次不计入对错。', true);
+      return;
+    }
     if (ok) hart.correct++; else hart.wrong++;
+    paintHartScore();
     pickHartTarget();
   }
 
   function hartTick(now) {
     if (!hart.running) return;
     hart.elapsed = (now - hart.startedAt) / 1000;
+    paintLiveElapsed(hart.elapsed);
     hart.raf = requestAnimationFrame(hartTick);
   }
 
@@ -1732,74 +1965,172 @@
     if (!hart.running) return;
     hart.running = false;
     if (hart.raf) { cancelAnimationFrame(hart.raf); hart.raf = null; }
-    $('game-view').classList.remove('pfs');
-    var actual = Math.round(hart.elapsed);
-    var g = $('game-body');
-    var title = hart.preview ? '试玩结束 ✅' : '训练完成 ✅';
-    var action = hart.preview
-      ? '<button class="btn btn-ghost" id="p-close">🔙 返回</button>'
-      : '<button class="btn btn-primary" id="hart-checkin">打卡上传给视训师</button>';
-    g.innerHTML = '<div class="game-inner">' +
-      '<h2 class="page-title">' + title + '</h2>' +
-      '<div class="card" style="line-height:2.1;">' +
-        '<div>答对：' + hart.correct + ' 个</div>' +
-        '<div>答错：' + hart.wrong + ' 个</div>' +
-        '<div>用时：' + Math.floor(actual / 60) + ' 分 ' + (actual % 60) + ' 秒</div>' +
-      '</div>' +
-      action + '</div>';
-    if (hart.preview) $('p-close').onclick = closeGame;
-    else $('hart-checkin').onclick = checkInHart;
+    leaveFullscreen();
+    showHartStop();
+  }
+
+  function showHartStop() {
+    var copy = practiceCopy();
+    practiceGate.pending = !hart.preview;
+    var data = window.Feedback
+      ? Feedback.hartRecordData(hart)
+      : { charset: hart.charset, per_dir: hart.perDir, correct: hart.correct || 0, wrong: hart.wrong || 0, actual: Math.max(0, Math.round(hart.elapsed || 0)) };
+    var report = window.Feedback ? Feedback.sessionReport('hart', data) : { durationText: '有效时长 ' + data.actual + ' 秒', accuracyText: '', accuracy: (data.correct + data.wrong) > 0 ? data.correct / (data.correct + data.wrong) : null, correct: data.correct, wrong: data.wrong };
+    var judgeNote = report.accuracy == null ? ('<div class="page-sub">' + esc(copy.noJudgeExtra || '') + '</div>') : '';
+    var actions = hart.preview
+      ? '<button class="btn btn-primary" id="practice-back" type="button">' + esc(copy.back || '返回') + '</button>'
+      : '<button class="btn btn-primary" id="hart-checkin" type="button">' + esc(copy.checkin || '打卡，记为今日完成') + '</button>' +
+        '<button class="btn btn-ghost" id="practice-resume" type="button">' + esc(copy.resume || '继续这次练习') + '</button>' +
+        '<button class="btn btn-ghost" id="practice-skip" type="button">' + esc(copy.skip || '先不打卡，返回') + '</button>' +
+        '<div class="msg err" id="practice-msg" hidden></div>';
+    $('game-body').innerHTML = practiceSheet(
+      hart.preview ? (copy.previewStopTitle || '试玩结束') : (copy.stopTitle || '这次先停在这里'),
+      '<div class="task-note">' + esc(hart.preview ? copy.previewStopLead : copy.stopLead) + '</div>' +
+      '<div class="card" style="line-height:1.9;">' +
+        '<div>' + esc(report.durationText) + '</div>' +
+        '<div>答对 ' + report.correct + ' · 答错 ' + report.wrong + '</div>' +
+        '<div>' + esc(report.accuracyText) + '</div>' +
+        judgeNote +
+      '</div>',
+      actions
+    );
+    if (hart.preview) $('practice-back').onclick = leavePractice;
+    else {
+      $('hart-checkin').onclick = checkInHart;
+      $('practice-resume').onclick = beginHart;
+      $('practice-skip').onclick = function () {
+        if (!confirm(copy.skipConfirm || '这次还没打卡，不会记入今日完成。确定返回？')) return;
+        leavePractice();
+      };
+    }
   }
 
   async function checkInHart() {
-    if (hart.preview || !hart.cid) { closeGame(); return; }
+    var copy = practiceCopy();
     var btn = $('hart-checkin');
-    btn.disabled = true; btn.textContent = '上传中…';
+    if (hart.preview || !hart.cid) {
+      showPracticeMsg(copy.noChild || '没有关联到孩子，这次没法打卡。');
+      toast(copy.noChild || '没有关联到孩子，这次没法打卡。', true);
+      return;
+    }
+    if (btn) { btn.disabled = true; btn.textContent = copy.uploading || '打卡上传中…'; }
+    var data = window.Feedback
+      ? Feedback.hartRecordData(hart)
+      : { charset: hart.charset, per_dir: hart.perDir, correct: hart.correct || 0, wrong: hart.wrong || 0, actual: Math.max(0, Math.round(hart.elapsed || 0)) };
     var res = await sb.from('records').insert({
       child_id: hart.cid,
       type: 'hart',
-      data: { charset: hart.charset, per_dir: hart.perDir, correct: hart.correct, wrong: hart.wrong, actual: Math.round(hart.elapsed) }
+      data: data
     });
-    if (res.error) { toast('打卡失败：' + errText(res.error.message), true); btn.disabled = false; btn.textContent = '打卡上传给视训师'; return; }
-    toast('打卡成功！视训师能看到啦');
-    closeGame();
+    if (res.error) {
+      var err = (copy.fail || '这次还没记上。') + ' ' + errText(res.error.message);
+      showPracticeMsg(err);
+      toast('打卡失败：' + errText(res.error.message), true);
+      if (btn) { btn.disabled = false; btn.textContent = copy.checkin || '打卡，记为今日完成'; }
+      return;
+    }
+    practiceGate.pending = false;
+    showPracticeDone('hart', data);
+  }
+
+  function hartTabHtml(items, current) {
+    return items.map(function (it) {
+      var on = String(current) === String(it[0]);
+      return '<button type="button" class="stage-tab' + (on ? ' active' : '') + '" data-v="' + it[0] + '">' + it[1] + '</button>';
+    }).join('');
   }
 
   function openHartConfig(cid, cname, preview) {
     if (!preview) state.childId = cid;
-    hart.cid = cid; hart.cname = cname; hart.preview = !!preview;
-    hart.dur = 180; hart.charset = 'mix'; hart.perDir = 4;
-    hart.correct = 0; hart.wrong = 0; hart.target = '';
+    pursuit.preview = false;
+    pursuit.running = false;
+    hart.cid = cid;
+    hart.cname = cname || '';
+    hart.preview = !!preview;
+    hart.dur = 180;
+    hart.charset = 'mix';
+    hart.dirMode = 'all';
+    hart.perDir = 4;
+    hart.correct = 0;
+    hart.wrong = 0;
+    hart.target = '';
+    hart.targetIdx = -1;
+    hart.elapsed = 0;
+    hart.running = false;
+    hart.layoutTries = 0;
+    practiceGate.pending = false;
+    showHartReady();
+  }
+  function againHart() {
+    practiceGate.pending = false;
+    hart.elapsed = 0;
+    hart.running = false;
+    hart.correct = 0;
+    hart.wrong = 0;
+    hart.target = '';
+    hart.targetIdx = -1;
+    showHartReady();
+  }
+  function showHartReady() {
+    stopPracticeLoops();
+    leaveFullscreen();
+    var copy = practiceCopy();
+    var lead = hart.preview ? copy.previewReady : copy.hartReady;
+    $('game-body').innerHTML = practiceSheet(
+      practiceTitle('哈特表', hart.preview ? '' : hart.cname, hart.preview),
+      '<div class="task-note">' + esc(lead || '') + '</div><p class="page-sub">' + esc(copy.discomfort || '') + '</p>',
+      '<button class="btn btn-primary" id="practice-start" type="button">' + esc(hart.preview ? copy.previewStart : copy.start) + '</button>' +
+      '<button class="btn btn-ghost" id="practice-back" type="button">' + esc(copy.back || '返回') + '</button>'
+    );
+    $('practice-start').onclick = beginHart;
+    $('practice-back').onclick = leavePractice;
+    $('game-view').classList.add('is-hart');
+    openGame();
+  }
+  function beginHart() {
+    practiceGate.pending = false;
+    hart.layoutTries = 0;
+    hart.startedAt = performance.now() - (hart.elapsed || 0) * 1000;
+    hart.running = true;
+    mountHartPlay();
+    hart.raf = requestAnimationFrame(hartTick);
+  }
+  function mountHartPlay() {
+    var copy = practiceCopy();
     var g = $('game-body');
     g.innerHTML = '<div class="game-wide">' +
       '<div class="hart-area" id="hart-area"></div>' +
-      '<div class="small-note">孩子盯中心不动，家长根据孩子报告点「对/错」</div>' +
+      '<div class="small-note">' + esc(copy.hartLive || '') + '</div>' +
       '<div class="p-ctrl dock-h" id="p-ctrl" style="left:50%; top:56px; transform:translateX(-50%);">' +
-        '<div class="p-ctrl-head" id="p-ctrl-head"><span class="p-ctrl-title">🎛️ 控制台</span><button class="p-ctrl-hide" id="p-ctrl-hide">—</button></div>' +
+        '<div class="p-ctrl-head" id="p-ctrl-head"><span class="p-ctrl-title" id="p-ctrl-title">控制台</span><button class="p-ctrl-hide" id="p-ctrl-hide" type="button">—</button></div>' +
         '<div class="p-ctrl-body">' +
           '<div class="p-ctrl-item"><div class="p-ctrl-item-label">🔤 字符</div><div class="stage-tabs" id="h-set">' +
-            '<button class="stage-tab active" data-v="mix">数字+字母</button><button class="stage-tab" data-v="digit">纯数字</button><button class="stage-tab" data-v="letter">纯字母</button></div></div>' +
+            hartTabHtml([['mix', '数字+字母'], ['digit', '纯数字'], ['letter', '纯字母']], hart.charset) + '</div></div>' +
           '<div class="p-ctrl-item"><div class="p-ctrl-item-label">🧭 方向</div><div class="stage-tabs" id="h-dir">' +
-            '<button class="stage-tab active" data-v="all">全部</button><button class="stage-tab" data-v="v">上下</button><button class="stage-tab" data-v="h">左右</button><button class="stage-tab" data-v="diag">斜向</button></div></div>' +
+            hartTabHtml([['all', '全部'], ['v', '上下'], ['h', '左右'], ['diag', '斜向']], hart.dirMode) + '</div></div>' +
           '<div class="p-ctrl-item"><div class="p-ctrl-item-label">📏 每方向</div><div class="stage-tabs" id="h-per">' +
-            '<button class="stage-tab" data-v="3">3个</button><button class="stage-tab active" data-v="4">4个</button><button class="stage-tab" data-v="5">5个</button></div></div>' +
-          '<div class="p-ctrl-item"><div class="p-ctrl-item-label">🔄 刷新</div><button class="btn btn-primary btn-small" id="h-refresh">重新打乱字符</button></div>' +
+            hartTabHtml([['3', '3个'], ['4', '4个'], ['5', '5个']], hart.perDir) + '</div></div>' +
+          '<div class="p-ctrl-item"><div class="p-ctrl-item-label">🔄 刷新</div><button class="btn btn-primary btn-small" id="h-refresh" type="button">重新打乱字符</button></div>' +
         '</div></div>' +
-      '<button class="p-ctrl-toggle" id="p-ctrl-toggle" style="display:none;">🎛️ 控制台</button>' +
+      '<button class="p-ctrl-toggle" id="p-ctrl-toggle" type="button" style="display:none;">🎛️ 控制台</button>' +
       '<div class="p-act">' +
-        '<button class="btn btn-ghost" id="p-fs">🔲 放大全屏</button>' +
-        '<button class="btn btn-ghost" id="p-stop">⏹ 结束训练</button>' +
+        '<button class="btn btn-ghost" id="p-fs" type="button">🔲 放大全屏</button>' +
+        '<button class="btn btn-ghost" id="p-stop" type="button">⏹ ' + esc(copy.end || '结束这次练习') + '</button>' +
       '</div>' +
-      '<div class="hart-judge">' +
-        '<button class="hart-btn no" id="hart-no">✗ 错</button>' +
-        '<button class="hart-btn yes" id="hart-yes">✓ 对</button>' +
-      '</div></div>';
+      '<button class="hart-exit-fs" id="hart-exit-fs" type="button">' + esc(copy.end || '结束这次练习') + '</button>' +
+      '<div class="hart-judge-wrap">' +
+        '<div class="hart-score" id="hart-score" aria-live="polite"></div>' +
+        '<div class="hart-judge">' +
+          '<button class="hart-btn no" id="hart-no" type="button">✗ 错</button>' +
+          '<button class="hart-btn yes" id="hart-yes" type="button">✓ 对</button>' +
+        '</div></div></div>';
 
     bindHartGroup('h-set', 'charset');
     bindHartGroup('h-dir', 'dirMode');
     bindHartGroup('h-per', 'perDir', parseInt);
-    $('h-refresh').onclick = function () { buildHart(); };
+    $('h-refresh').onclick = function () { hart.layoutTries = 0; buildHart(); };
     $('p-stop').onclick = endHart;
+    $('hart-exit-fs').onclick = endHart;
     $('p-fs').onclick = toggleHartFs;
     $('hart-yes').onclick = function () { judgeHart(true); };
     $('hart-no').onclick = function () { judgeHart(false); };
@@ -1808,25 +2139,29 @@
     initCtrlDrag();
     initToggleDrag();
     $('game-view').classList.add('is-hart');
-    hideCtrl();   // 哈特表配置默认收起，训练时只留对/错栏，不挡视标
-
+    hideCtrl();
     openGame();
-    hart.elapsed = 0;
-    hart.startedAt = performance.now();
-    hart.running = true;
+    paintHartScore();
+    paintLiveElapsed(hart.elapsed);
     requestAnimationFrame(function () { buildHart(); });
-    hart.raf = requestAnimationFrame(hartTick);
   }
 
   function bindHartGroup(id, key, parse) {
-    var btns = $(id).querySelectorAll('.stage-tab');
+    var box = $(id);
+    if (!box) return;
+    var btns = box.querySelectorAll('.stage-tab');
     for (var i = 0; i < btns.length; i++) {
       btns[i].onclick = function () {
         for (var j = 0; j < btns.length; j++) btns[j].classList.toggle('active', btns[j] === this);
         var v = this.getAttribute('data-v');
-        hart[key] = parse ? parse(v) : v;
+        hart[key] = parse ? parse(v, 10) : v;
         if (key === 'dur') return;
-        hart.correct = 0; hart.wrong = 0; hart.target = '';
+        if ((hart.correct || 0) + (hart.wrong || 0) > 0) toast(practiceCopy().settingReset || '已更换设置，这次的对错计数从头算。');
+        hart.correct = 0;
+        hart.wrong = 0;
+        hart.target = '';
+        hart.targetIdx = -1;
+        hart.layoutTries = 0;
         buildHart();
       };
     }
@@ -1855,14 +2190,15 @@
     setTimeout(buildHart, 60);
   }
   function onFsChange() {
-    $('game-view').classList.toggle('pfs', isFs());
+    var playing = pursuit.running || hart.running;
+    $('game-view').classList.toggle('pfs', !!(playing && isFs()));
     updateFsBtn();
-    setTimeout(buildHart, 60);
+    if (hart.running) setTimeout(buildHart, 60);
   }
   document.addEventListener('fullscreenchange', onFsChange);
   document.addEventListener('webkitfullscreenchange', onFsChange);
 
-  // 从处方启动线上训练游戏（家长端，关联孩子、可打卡）
+  // 从今日作业启动这两门练习（家长端，关联孩子、可打卡）
   function launchGame(key, cid, cname) {
     if (key === 'pursuit') openPursuitConfig(cid, cname);
     else if (key === 'hart') openHartConfig(cid, cname);
@@ -1917,6 +2253,18 @@
   document.addEventListener('click', function (e) {
     var t = e.target;
     if (!t || !t.closest) return;
+    if (t.closest('[data-open-help]')) { openHelp(); return; }
+    var noteBtn = t.closest('.fb-note-toggle');
+    if (noteBtn) {
+      var more = noteBtn.parentElement ? noteBtn.parentElement.nextElementSibling : null;
+      if (!more || !more.classList || !more.classList.contains('fb-note-more')) return;
+      var open = more.hasAttribute('hidden');
+      if (open) more.removeAttribute('hidden');
+      else more.setAttribute('hidden', '');
+      noteBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      noteBtn.textContent = open ? '收起说明' : '说明';
+      return;
+    }
     var root = t.closest('[data-fb-root]');
     if (!root) return;
     var rangeBtn = t.closest('[data-fb-range]');
@@ -1933,7 +2281,7 @@
     var slot = $('fb-home');
     if (!slot || !window.Feedback) return;
     var seq = ++fbPaintSeq;
-    slot.innerHTML = '<div class="sect">今日完成</div><p class="fb-note">' + esc(Feedback.noteText('parent')) + '</p><div id="fb-home-cards"></div>';
+    slot.innerHTML = '<div class="sect">今日完成</div>' + Feedback.noteBlock('parent') + '<div id="fb-home-cards"></div>';
     var res = await loadLockedRecords(kids.map(function (k) { return k.id; }));
     if (seq !== fbPaintSeq) return;
     var box = $('fb-home-cards');
@@ -2029,12 +2377,9 @@
     // 顶部以今日作业为主角：视训师布置的练习在前，孩子回传降到日常区
     c.innerHTML =
       '<h2 class="page-title">我的家庭' + (fam.data ? '：' + esc(fam.data.name) : '') + '</h2>' +
-      '<div class="task-note">' + TASK_MAIN + '</div>' +
       '<div class="sect">今日作业</div>' +
       '<div id="rx-home-list"></div>' +
       '<div id="fb-home"></div>' +
-      '<button type="button" class="btn btn-ghost" onclick="showSplitHint(\'home-split\')">稍后再练</button>' +
-      '<div class="task-split" id="home-split" hidden>' + TASK_SPLIT + '</div>' +
       '<div class="sect">📌 自定义训练</div>' +
       '<div id="custom-home-list"></div>' +
       '<div class="sect">👶 孩子 · 日常回传</div>' +
@@ -2043,7 +2388,7 @@
 
     var box = $('child-list');
     if (cr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(cr.error.message)) + '</div>'; }
-    else if (!kids.length) { box.innerHTML = '<div class="empty">视训师还没有添加孩子，等等再来</div>'; }
+    else if (!kids.length) { box.innerHTML = emptyNext('视训师还没有添加孩子，等等再来'); }
     else {
       var cols = '1fr 1fr 1fr';
       kids.forEach(function (k) {
@@ -2055,8 +2400,8 @@
               '<div class="s">' + (k.age ? (k.age + ' 岁') : '') + '</div></div>' +
             '</div>' +
             '<div style="display:grid; grid-template-columns:' + cols + '; gap:6px; margin-top:12px; flex:none;">' +
-              '<button class="btn btn-primary btn-small" onclick="openEyeForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">眼位照</button>' +
-              '<button class="btn btn-primary btn-small" onclick="openMarsdenForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">马斯登球</button>' +
+              '<button class="btn btn-ghost btn-small" onclick="openEyeForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">眼位照</button>' +
+              '<button class="btn btn-ghost btn-small" onclick="openMarsdenForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">马斯登球</button>' +
               '<button class="btn btn-ghost btn-small" onclick="openRecordForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">周边训练</button>' +
             '</div>' +
           '</div>';

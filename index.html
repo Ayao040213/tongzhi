@@ -21,6 +21,12 @@
   .screen{ display:none; padding:0 0 40px; }
   .screen.active{ display:block; animation:fadeIn .25s ease; }
   @keyframes fadeIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;} }
+  button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible{
+    outline:2px solid var(--primary); outline-offset:2px;
+  }
+  @media (prefers-reduced-motion:reduce){
+    .screen, .screen.active{ animation:none !important; }
+  }
 
   /* ============ 顶部栏 ============ */
   .topbar{
@@ -28,7 +34,18 @@
     color:#fff; padding:22px 20px 20px; border-radius:0 0 22px 22px;
   }
   .topbar .back{ display:inline-block; margin-bottom:10px; font-size:14px; opacity:.9; cursor:pointer; }
+  .topbar-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
   .topbar .brand{ font-size:20px; font-weight:700; letter-spacing:1px; }
+  .demo-tag{
+    display:inline-block; margin-left:6px; vertical-align:2px; letter-spacing:0;
+    font-size:12px; font-weight:700; border:1px solid rgba(255,255,255,.75);
+    border-radius:999px; padding:1px 8px;
+  }
+  .cloud-cta{
+    flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;
+    min-height:44px; padding:0 14px; border-radius:999px; background:#fff; color:var(--primary);
+    font-size:14px; font-weight:700; text-decoration:none;
+  }
   .topbar .sub{ font-size:13px; opacity:.85; margin-top:2px; }
   .topbar .child{ margin-top:14px; display:flex; align-items:baseline; gap:8px; }
   .topbar .child .name{ font-size:26px; font-weight:700; }
@@ -223,8 +240,13 @@
   <!-- ========== 1. 首页 / 今日计划 ========== -->
   <section id="screen-home" class="screen active">
     <div class="topbar">
-      <div class="brand">瞳治视觉训练助手</div>
-      <div class="sub">家庭视觉训练 · 双端 v0.7</div>
+      <div class="topbar-head">
+        <div>
+          <div class="brand">瞳治视觉训练助手 <span class="demo-tag">演示</span></div>
+          <div class="sub">家庭视觉训练 · 双端 v0.7</div>
+        </div>
+        <a class="cloud-cta" href="app.html">进入云端版</a>
+      </div>
       <div class="child">
         <span class="name" id="childName">小宇</span>
         <span class="date" id="todayDate"></span>
@@ -233,8 +255,8 @@
 
     <div class="role-bar">
       <span class="lbl">当前身份</span>
-      <button data-role="parent" class="active">👨‍👩‍👧 家长</button>
-      <button data-role="trainer">🧑‍⚕️ 视训师</button>
+      <button type="button" data-role="parent" class="active" aria-pressed="true">👨‍👩‍👧 家长</button>
+      <button type="button" data-role="trainer" aria-pressed="false">👁️ 视训师</button>
     </div>
 
     <div id="parentHome">
@@ -497,7 +519,7 @@
         <li>让孩子用<b>余光</b>去点银球，金银换着来</li>
         <li>点中一次，就在记录页点「命中 +1」</li>
       </ol>
-      <div class="tip">🔑 命中次数，就是训练师判断「周边视野有没有进步」的关键数据。</div>
+      <div class="tip">🔑 命中次数，就是视训师判断「周边视野有没有进步」的关键数据。</div>
     </div>
 
     <div class="block">
@@ -975,7 +997,11 @@ let role = lsGet('role', 'parent');
 function setRole(r){
   role = r;
   lsSet('role', r);
-  document.querySelectorAll('.role-bar button').forEach(b => b.classList.toggle('active', b.dataset.role === r));
+  document.querySelectorAll('.role-bar button').forEach(b => {
+    var on = b.dataset.role === r;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
   $('parentHome').style.display = (r === 'parent') ? 'block' : 'none';
   $('trainerHome').style.display = (r === 'trainer') ? 'block' : 'none';
   if(r === 'trainer') renderChildren();
@@ -983,7 +1009,11 @@ function setRole(r){
   renderVideos();
 }
 function initRole(){
-  document.querySelectorAll('.role-bar button').forEach(b => b.classList.toggle('active', b.dataset.role === role));
+  document.querySelectorAll('.role-bar button').forEach(b => {
+    var on = b.dataset.role === role;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
   $('parentHome').style.display = (role === 'parent') ? 'block' : 'none';
   $('trainerHome').style.display = (role === 'trainer') ? 'block' : 'none';
 }
@@ -992,7 +1022,7 @@ document.querySelectorAll('.role-bar button').forEach(b => {
 });
 
 /* ---------- 指导视频：零后端（本地 IndexedDB + 视频直链） ----------
- *  训练师（TOB）能「添加/删除」；家长（TOC）只能「查看/播放」。
+ *  视训师（TOB）能「添加/删除」；家长（TOC）只能「查看/播放」。
  *  本地视频存 IndexedDB，仅本机浏览器有效；「视频链接」存 localStorage，
  *  家长在别的设备也能播（视频实际存在外部链接）。真跨设备上传 → 方案 B。 */
 let liveUrls = [];
