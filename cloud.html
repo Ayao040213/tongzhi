@@ -320,6 +320,32 @@
   .fb-chart-head .t{ font-size:14px; font-weight:700; }
   .fb-chart{ width:100%; max-width:520px; height:auto; display:block; margin-top:4px; }
   .fb-empty{ background:#f7fafb; border:1px dashed var(--line); border-radius:12px; color:var(--muted); font-size:13px; line-height:1.6; text-align:center; padding:18px 14px; margin:8px 0; }
+  .dr-cal-bar{ display:flex; align-items:center; justify-content:flex-end; gap:8px; min-height:32px; margin:0 0 4px; flex-wrap:wrap; }
+  .dr-cal-bar.is-month{ justify-content:space-between; }
+  .dr-cal-bar .linkbtn{ min-height:44px; padding:0 4px; }
+  .dr-month-nav{ display:flex; align-items:center; gap:8px; }
+  .dr-month-label{ font-size:13px; font-weight:600; }
+  .dr-week, .dr-month{ display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:2px; }
+  .dr-wdhead{ text-align:center; font-size:11px; color:var(--muted); line-height:1.2; padding-bottom:2px; }
+  .dr-day{
+    -webkit-appearance:none; appearance:none; border:none; background:transparent; border-radius:12px;
+    min-height:44px; padding:4px 0; margin:0; color:var(--text);
+    font:inherit; font-size:14px; font-weight:600;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+    cursor:pointer; min-width:0;
+  }
+  span.dr-day{ cursor:default; }
+  .dr-day.is-out{ color:var(--muted); opacity:.38; }
+  .dr-day.is-pad{ color:var(--muted); }
+  .dr-day.is-on{ background:#eef4f6; color:var(--primary); font-weight:700; }
+  .dr-wd{ font-size:11px; font-weight:600; color:var(--muted); line-height:1.1; }
+  .dr-day.is-on .dr-wd{ color:var(--primary); }
+  .dr-num{ font-variant-numeric:tabular-nums; line-height:1.15; }
+  .dr-dot{ width:4px; height:4px; border-radius:50%; background:var(--muted); opacity:.35; margin-top:1px; }
+  .dr-dot.is-off{ visibility:hidden; }
+  .dr-sum{ font-size:13px; color:var(--muted); margin:8px 0 2px; }
+  .dr-media:empty{ display:none; }
+  .dr-list .list-item{ align-items:flex-start; }
   .fb-inline{ display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
   .help-panel{
     position:fixed; inset:0; z-index:10050; background:rgba(15,40,48,.48);
@@ -458,6 +484,7 @@
 <script src="supabase.js"></script>
 <script src="js/util.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/daily-returns.js"></script>
 <script src="feedback.js?v=4"></script>
 <script>
   var SUPABASE_URL = 'https://ucjgcybsvrkfgkszcygq.supabase.co';
@@ -719,49 +746,18 @@
     var c = $('content');
     c.innerHTML = '<h2 class="page-title">' + esc(cname) + ' 的档案</h2>' +
       '<p class="page-sub">线上视觉练习 · 练习安排 · 自定义训练 · 回传记录</p>' +
-      '<div id="fb-child"></div>' +
+      '<div id="daily-returns"></div>' +
       renderGameBoard() +
-      '<div class="grid-2">' +
-        '<div>' +
-          '<div style="font-size:15px; font-weight:700; margin:18px 0 4px;">📋 练习安排</div>' +
-          '<div id="rx-list"></div>' +
-          '<button class="btn btn-ghost" onclick="newRx()">＋ 布置练习</button>' +
-          '<div style="font-size:15px; font-weight:700; margin:18px 0 4px;">📌 自定义训练</div>' +
-          '<div id="custom-list"></div>' +
-          '<button class="btn btn-ghost" onclick="newCustom()">＋ 新建自定义训练</button>' +
-        '</div>' +
-        '<div>' +
-          '<div style="font-size:15px; font-weight:700; margin:18px 0 4px;">📥 看回传</div>' +
-          '<div id="mod-list"></div>' +
-        '</div>' +
-      '</div>' +
+      '<div style="font-size:15px; font-weight:700; margin:18px 0 4px;">📋 练习安排</div>' +
+      '<div id="rx-list"></div>' +
+      '<button class="btn btn-ghost" onclick="newRx()">＋ 布置练习</button>' +
+      '<div style="font-size:15px; font-weight:700; margin:18px 0 4px;">📌 自定义训练</div>' +
+      '<div id="custom-list"></div>' +
+      '<button class="btn btn-ghost" onclick="newCustom()">＋ 新建自定义训练</button>' +
       '<button class="btn btn-ghost" onclick="openFamily(\'' + state.familyId + '\')">返回</button>';
     renderRxList();
     renderCustomList();
-    renderChildFeedback(cid, cname);
-    var rr = await sb.from('records').select('type').eq('child_id', cid);
-    var box = $('mod-list');
-    if (rr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(rr.error.message)) + '</div>'; return; }
-    if (!rr.data.length) { box.innerHTML = '<div class="empty">还没有回传记录</div>'; return; }
-    var types = [
-      { key: 'eye', label: '眼位照', icon: '👁️', desc: '九宫格眼位图' },
-      { key: 'marsden', label: '马斯登球', icon: '🎾', desc: '三段训练视频' },
-      { key: 'peripheral', label: '周边训练', icon: '🎯', desc: '命中次数 + 照片/视频' },
-      { key: 'custom', label: '自定义训练', icon: '📌', desc: '教程回传照片' },
-      { key: 'pursuit', label: '追视小球', icon: '👀', desc: (window.Feedback && Feedback.PRACTICE_COPY.pursuitCat) || '打卡回传 · 有效时长' },
-      { key: 'hart', label: '哈特表', icon: '🎯', desc: (window.Feedback && Feedback.PRACTICE_COPY.hartCat) || '打卡回传 · 有效时长与正确率' }
-    ];
-    for (var i = 0; i < types.length; i++) {
-      var t = types[i];
-      var cnt = rr.data.filter(function (r) { return r.type === t.key; }).length;
-      box.innerHTML +=
-        '<div class="list-item" style="cursor:pointer;" onclick="openChildType(\'' + cid + '\',\'' + t.key + '\')">' +
-          '<span class="icon">' + t.icon + '</span>' +
-          '<div><div class="t">' + t.label + '</div>' +
-          '<div class="s">' + t.desc + ' · ' + cnt + ' 条</div></div>' +
-          '<span class="chev">›</span>' +
-        '</div>';
-    }
+    loadDailyReturns(cid);
   }
 
   async function openChildType(cid, type) {
@@ -779,46 +775,45 @@
     if (!rr.data.length) { box.innerHTML = '<div class="empty">这个分类还没有回传</div>'; return; }
     for (var i = 0; i < rr.data.length; i++) {
       var r = rr.data[i];
-      var d = r.data || {};
-      var desc = '';
-      if (r.type === 'peripheral') desc = '命中 ' + (d.hit || 0) + ' 次 · 未中 ' + (d.miss || 0) + ' 次';
-      else if (r.type === 'eye') desc = '眼位照 · ' + eyeStageName(d.stage);
-      else if (r.type === 'marsden') desc = '马斯登球 · ' + ((d.slots && d.slots.length) ? (d.slots.length + ' 段视频') : '视频');
-      else if (r.type === 'custom') desc = '自定义训练 · ' + (d.custom_title || '回传');
-      else if (r.type === 'pursuit' || r.type === 'hart') {
-        desc = window.Feedback ? Feedback.recordCaption(r.type, d) : (r.type === 'pursuit' ? '追视小球' : '哈特表');
-      }
-      else desc = r.type;
+      var desc = window.DailyReturns ? DailyReturns.recordTitle(r) : (r.type || '');
       var html = '<div class="list-item"><div><div class="t">' + esc(desc) + '</div>' +
-        '<div class="s">' + fmtTime(r.created_at) + '</div>';
-      var media = r.media || [];
-      for (var j = 0; j < media.length; j++) {
-        var su = await sb.storage.from('media').createSignedUrl(media[j], 3600);
-        if (su.data && su.data.signedUrl) {
-          var u = esc(su.data.signedUrl);
-          if (/\.(mp4|mov|webm|m4v)$/i.test(media[j])) {
-            html += '<video src="' + u + '" controls preload="metadata" style="display:block;width:100%;margin-top:10px;border-radius:12px;background:#000;"></video>';
-          } else {
-            html += '<img src="' + u + '" class="zoomable" loading="lazy" onclick="openImgViewer(this.src)" style="display:block;max-width:100%;margin-top:10px;border-radius:12px;cursor:pointer;box-shadow:0 2px 8px rgba(20,60,80,.08);">';
-          }
-        }
-      }
-      // 原画质（若有）：默认隐藏，点「看原画质」展开
-      var originals = (r.data && r.data.originals) || [];
-      var origHtml = '';
-      for (var oi = 0; oi < originals.length; oi++) {
-        var so = await sb.storage.from('media').createSignedUrl(originals[oi], 3600);
-        if (so.data && so.data.signedUrl) {
-          origHtml += '<video src="' + esc(so.data.signedUrl) + '" controls preload="metadata" style="display:block;width:100%;margin-top:10px;border-radius:12px;background:#000;"></video>';
-        }
-      }
-      if (origHtml) {
-        html += '<div class="orig-box" style="display:none;">' + origHtml + '</div>' +
-          '<button class="btn btn-ghost btn-small" style="margin-top:8px;" onclick="toggleOrig(this)">看原画质</button>';
-      }
-      html += '</div><button class="btn btn-ghost btn-small" style="flex-shrink:0;" onclick="deleteRecord(\'' + r.id + '\',\'' + type + '\')">删除</button></div>';
+        '<div class="s">' + fmtTime(r.created_at) + '</div>' +
+        await recordMediaInnerHtml(r) +
+        '</div><button class="btn btn-ghost btn-small" style="flex-shrink:0;" onclick="deleteRecord(\'' + r.id + '\',\'' + type + '\')">删除</button></div>';
       box.innerHTML += html;
     }
+  }
+
+  async function recordMediaInnerHtml(r) {
+    var paths = (window.DailyReturns && DailyReturns.mediaPaths)
+      ? DailyReturns.mediaPaths(r)
+      : { media: r.media || [], originals: (r.data && r.data.originals) || [] };
+    var html = '';
+    var media = paths.media || [];
+    for (var j = 0; j < media.length; j++) {
+      var su = await sb.storage.from('media').createSignedUrl(media[j], 3600);
+      if (su.data && su.data.signedUrl) {
+        var u = esc(su.data.signedUrl);
+        if (/\.(mp4|mov|webm|m4v)$/i.test(media[j])) {
+          html += '<video src="' + u + '" controls preload="metadata" style="display:block;width:100%;margin-top:10px;border-radius:12px;background:#000;"></video>';
+        } else {
+          html += '<img src="' + u + '" class="zoomable" loading="lazy" onclick="openImgViewer(this.src)" style="display:block;max-width:100%;margin-top:10px;border-radius:12px;cursor:pointer;box-shadow:0 2px 8px rgba(20,60,80,.08);">';
+        }
+      }
+    }
+    var originals = paths.originals || [];
+    var origHtml = '';
+    for (var oi = 0; oi < originals.length; oi++) {
+      var so = await sb.storage.from('media').createSignedUrl(originals[oi], 3600);
+      if (so.data && so.data.signedUrl) {
+        origHtml += '<video src="' + esc(so.data.signedUrl) + '" controls preload="metadata" style="display:block;width:100%;margin-top:10px;border-radius:12px;background:#000;"></video>';
+      }
+    }
+    if (origHtml) {
+      html += '<div class="orig-box" style="display:none;">' + origHtml + '</div>' +
+        '<button class="btn btn-ghost btn-small" style="margin-top:8px;" onclick="toggleOrig(this)">看原画质</button>';
+    }
+    return html;
   }
 
   // 视训师：删除一条回传（连同它的照片/视频文件）
@@ -833,7 +828,8 @@
     }
     var res = await sb.from('records').delete().eq('id', recId);
     if (res.error) { toast('删除失败：' + errText(res.error.message), true); return; }
-    openChildType(state.childId, type);
+    if ($('daily-returns')) loadDailyReturns(state.childId, true);
+    else openChildType(state.childId, type);
   }
 
   // ---------- 训练处方（视训师开 → 家长手机看） ----------
@@ -2311,30 +2307,92 @@
       });
     });
   }
-  async function renderChildFeedback(cid, cname) {
-    var slot = $('fb-child');
-    if (!slot || !window.Feedback) return;
-    var seq = ++fbPaintSeq;
-    slot.innerHTML = '<div class="sect">今日回传</div><div class="empty">读取中…</div>';
-    var res = await loadLockedRecords([cid]);
-    if (seq !== fbPaintSeq) return;
-    slot = $('fb-child');
+  var dailyPaint = 0;
+  var dailySeq = 0;
+  var dailyState = { cid: '', records: [], ui: null };
+  function paintDailyReturns() {
+    var slot = $('daily-returns');
+    if (!slot || !window.DailyReturns) return;
+    var now = new Date();
+    var token = ++dailyPaint;
+    if (!dailyState.ui) dailyState.ui = DailyReturns.initialState(now);
+    slot.innerHTML = DailyReturns.render({
+      now: now,
+      state: dailyState.ui,
+      records: dailyState.records
+    });
+    fillDailyMedia(token);
+  }
+  async function fillDailyMedia(token) {
+    var nodes = document.querySelectorAll('#daily-returns [data-dr-media]');
+    for (var i = 0; i < nodes.length; i++) {
+      if (token !== dailyPaint) return;
+      var id = nodes[i].getAttribute('data-dr-media');
+      if (!id) continue;
+      var rec = null;
+      for (var j = 0; j < dailyState.records.length; j++) {
+        if (String(dailyState.records[j].id) === id) { rec = dailyState.records[j]; break; }
+      }
+      if (!rec) continue;
+      var paths = DailyReturns.mediaPaths(rec);
+      if (!paths.media.length && !paths.originals.length) continue;
+      var html = await recordMediaInnerHtml(rec);
+      if (token !== dailyPaint) return;
+      if (nodes[i].parentNode) nodes[i].innerHTML = html;
+    }
+  }
+  async function loadDailyReturns(cid, keep) {
+    var slot = $('daily-returns');
     if (!slot) return;
-    if (res.error) {
-      slot.innerHTML = '<div class="sect">今日回传</div><div class="empty">今日回传暂时读不出来：' + esc(errText(res.error.message)) + '</div>';
+    if (!window.DailyReturns) {
+      slot.innerHTML = '<div class="sect">每日回传</div><div class="empty">每日回传暂时读不出来</div>';
       return;
     }
-    slot.innerHTML = '<div class="sect">今日回传</div>';
-    var el = document.createElement('div');
-    slot.appendChild(el);
-    mountFeedbackCard(el, {
-      id: 'child-' + cid,
-      audience: 'therapist',
-      childName: cname || '',
-      records: res.data || [],
-      showNote: true
-    });
+    var seq = ++dailySeq;
+    var now = new Date();
+    dailyState.cid = cid;
+    if (!keep) dailyState.ui = DailyReturns.initialState(now);
+    slot.innerHTML = DailyReturns.loadingHtml();
+    var res = await sb.from('records')
+      .select('*')
+      .eq('child_id', cid)
+      .gte('created_at', feedbackSinceIso())
+      .order('created_at', { ascending: true })
+      .limit(1000);
+    if (seq !== dailySeq) return;
+    slot = $('daily-returns');
+    if (!slot) return;
+    if (res.error) {
+      slot.innerHTML = DailyReturns.errorHtml('每日回传暂时读不出来：' + errText(res.error.message));
+      return;
+    }
+    dailyState.records = res.data || [];
+    paintDailyReturns();
   }
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    if (!t || !t.closest || !window.DailyReturns) return;
+    if (!t.closest('#daily-returns')) return;
+    var day = t.closest('[data-dr-day]');
+    if (day) {
+      dailyState.ui = DailyReturns.reduce(dailyState.ui, { type: 'select', key: day.getAttribute('data-dr-day') }, new Date());
+      paintDailyReturns();
+      return;
+    }
+    if (t.closest('[data-dr-toggle]')) {
+      dailyState.ui = DailyReturns.reduce(dailyState.ui, { type: 'toggle' }, new Date());
+      paintDailyReturns();
+      return;
+    }
+    var shift = t.closest('[data-dr-month]');
+    if (shift) {
+      dailyState.ui = DailyReturns.reduce(dailyState.ui, { type: 'month', delta: parseInt(shift.getAttribute('data-dr-month'), 10) }, new Date());
+      paintDailyReturns();
+      return;
+    }
+    var del = t.closest('[data-dr-delete]');
+    if (del) deleteRecord(del.getAttribute('data-dr-delete'), del.getAttribute('data-dr-type'));
+  });
 
   // ---------- 家长端 ----------
   function renderParentHome() {
