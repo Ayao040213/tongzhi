@@ -282,4 +282,251 @@ assert.ok(sliceFn(page, 'async function init()', '})();').indexOf('getSession') 
 assert.ok(sliceFn(page, 'async function init()', '})();').indexOf('catch (e)') >= 0);
 assert.ok(sliceFn(authSrc, 'async function signIn()', 'async function signOut()').indexOf('thrownAuthText') >= 0);
 
-console.log('feedback.test.js ok');
+function catchTail(src) {
+  var i = src.lastIndexOf('catch (e)');
+  assert.ok(i >= 0, 'missing catch');
+  return src.slice(i);
+}
+var customFn = sliceFn(page, 'async function checkinCustom()', 'function isBigScreen()');
+var pursuitFn = sliceFn(page, 'async function checkInPursuit()', 'function showPracticeDone(');
+var hartFn = sliceFn(page, 'async function checkInHart()', 'function hartTabHtml(');
+var recordFn = sliceFn(page, 'async function submitRecord()', 'var EYE_DIRS');
+[customFn, pursuitFn, hartFn, recordFn].forEach(function (fn) {
+  assert.ok(fn.indexOf('try {') >= 0);
+  assert.ok(catchTail(fn).indexOf('catch (e)') === 0);
+});
+assert.ok(catchTail(customFn).indexOf('thrownAuthText') >= 0);
+assert.ok(catchTail(customFn).indexOf("btn.textContent = '打卡提交给视训师'") >= 0);
+assert.ok(catchTail(customFn).indexOf('btn.disabled = false') >= 0);
+assert.ok(catchTail(pursuitFn).indexOf('thrownAuthText') >= 0);
+assert.ok(catchTail(pursuitFn).indexOf('showPracticeMsg') >= 0);
+assert.ok(catchTail(pursuitFn).indexOf('btn.disabled = false') >= 0);
+assert.ok(catchTail(hartFn).indexOf('thrownAuthText') >= 0);
+assert.ok(catchTail(hartFn).indexOf('showPracticeMsg') >= 0);
+assert.ok(catchTail(hartFn).indexOf('btn.disabled = false') >= 0);
+var uploadAt = recordFn.indexOf("storage.from('media').upload");
+var insertAt = recordFn.indexOf("from('records').insert");
+assert.ok(uploadAt >= 0 && insertAt > uploadAt, 'peripheral upload must precede insert');
+assert.strictEqual(recordFn.indexOf('.update('), -1, 'peripheral must not update a row created before upload');
+assert.ok(recordFn.indexOf("'/peripheral/'") >= 0);
+assert.ok(catchTail(recordFn).indexOf('thrownAuthText') >= 0);
+assert.ok(catchTail(recordFn).indexOf('btn.disabled = false') >= 0);
+assert.ok(catchTail(recordFn).indexOf("btn.textContent = '提交回传'") >= 0);
+var inline = page.split('<script src="feedback.js?v=3"></script>')[1].replace(/^\s*<script>/, '').replace(/<\/script>\s*<\/body>\s*<\/html>\s*$/, '');
+new Function(inline);
+
+if (!global.window) global.window = {};
+global.window.Feedback = Feedback;
+require('./js/auth.js');
+global.errText = global.window.errText;
+global.thrownAuthText = global.window.thrownAuthText;
+global.Feedback = Feedback;
+global.practiceCopy = function () { return Feedback.PRACTICE_COPY; };
+global.practiceGate = { pending: true };
+global.compressImage = function (file) { return Promise.resolve(file); };
+global.compressVideo = function (file) { return Promise.resolve(file); };
+global.renderCustomPending = function () {};
+global.renderCustomProgress = function () { return Promise.resolve(); };
+if (!global.URL.revokeObjectURL) global.URL.revokeObjectURL = function () {};
+function loadPageFn(src, name) {
+  return new Function(src + '\nreturn ' + name + ';')();
+}
+var checkinCustom = loadPageFn(customFn, 'checkinCustom');
+var checkInPursuit = loadPageFn(pursuitFn, 'checkInPursuit');
+var checkInHart = loadPageFn(hartFn, 'checkInHart');
+var submitRecord = loadPageFn(recordFn, 'submitRecord');
+
+function chainSb(handlers) {
+  var ops = [];
+  function tableApi(table) {
+    var api = {
+      select: function () { return api; },
+      eq: function () { return api; },
+      single: function () {
+        ops.push({ op: 'single', table: table });
+        if (handlers.single) return handlers.single(table, ops);
+        return Promise.resolve({ data: { title: '自定义训练' } });
+      },
+      insert: function (row) {
+        ops.push({ op: 'insert', table: table, row: row });
+        if (handlers.insert) return handlers.insert(table, row, ops);
+        return Promise.resolve({ error: null });
+      },
+      update: function (row) {
+        ops.push({ op: 'update', table: table, row: row });
+        return Promise.resolve({ error: null });
+      }
+    };
+    return api;
+  }
+  return {
+    ops: ops,
+    from: function (table) { return tableApi(table); },
+    storage: {
+      from: function () {
+        return {
+          upload: function (path, file) {
+            ops.push({ op: 'upload', path: path, file: file });
+            if (handlers.upload) return handlers.upload(path, file, ops);
+            return Promise.resolve({ error: null });
+          }
+        };
+      }
+    }
+  };
+}
+function practiceBtn(id) {
+  var btn = { id: id, disabled: false, textContent: Feedback.PRACTICE_COPY.checkin };
+  global.$ = function (q) { return q === id ? btn : null; };
+  return btn;
+}
+
+(async function () {
+  var pursuitBtn = practiceBtn('p-checkin');
+  var pursuitMsgs = [];
+  var pursuitToasts = [];
+  global.showPracticeMsg = function (text) { pursuitMsgs.push(text); };
+  global.toast = function (text, isError) { pursuitToasts.push({ text: text, isError: !!isError }); };
+  global.showPracticeDone = function () { throw new Error('pursuit should stay on the check-in sheet'); };
+  global.pursuit = { preview: false, cid: 'c1', speed: 3, amp: 80, traj: 'h', elapsed: 12 };
+  global.sb = chainSb({
+    insert: function () {
+      assert.strictEqual(pursuitBtn.disabled, true);
+      assert.strictEqual(pursuitBtn.textContent, '打卡上传中…');
+      return Promise.reject(new TypeError('Failed to fetch'));
+    }
+  });
+  await checkInPursuit();
+  assert.strictEqual(pursuitBtn.disabled, false);
+  assert.strictEqual(pursuitBtn.textContent, '打卡，记为今日完成');
+  assert.ok(pursuitMsgs[0].indexOf('这次还没记上') >= 0);
+  assert.ok(pursuitMsgs[0].indexOf('网络连接失败，请检查网络后重试') >= 0);
+  assert.ok(pursuitToasts[0].text.indexOf('网络连接失败，请检查网络后重试') >= 0);
+  assert.strictEqual(pursuitToasts[0].isError, true);
+  assert.strictEqual(global.practiceGate.pending, true);
+
+  var hartBtn = practiceBtn('hart-checkin');
+  var hartMsgs = [];
+  global.showPracticeMsg = function (text) { hartMsgs.push(text); };
+  global.toast = function () {};
+  global.showPracticeDone = function () { throw new Error('hart should stay on the check-in sheet'); };
+  global.hart = { preview: false, cid: 'c1', charset: 'mix', perDir: 4, correct: 1, wrong: 1, elapsed: 8 };
+  global.sb = chainSb({
+    insert: function () {
+      assert.strictEqual(hartBtn.disabled, true);
+      assert.strictEqual(hartBtn.textContent, '打卡上传中…');
+      return Promise.reject(new TypeError('Failed to fetch'));
+    }
+  });
+  await checkInHart();
+  assert.strictEqual(hartBtn.disabled, false);
+  assert.strictEqual(hartBtn.textContent, '打卡，记为今日完成');
+  assert.ok(hartMsgs[0].indexOf('网络连接失败，请检查网络后重试') >= 0);
+  assert.strictEqual(global.practiceGate.pending, true);
+
+  global.customPending = [{ file: { name: 'a.png', type: 'image/png' }, url: 'blob:a' }];
+  global.state = { customId: 'p1', childId: 'child-1' };
+  var customBtn = { disabled: false, textContent: '打卡提交给视训师' };
+  var customToasts = [];
+  global.$ = function (q) { return q === 'custom-checkin' ? customBtn : null; };
+  global.toast = function (text, isError) { customToasts.push({ text: text, isError: !!isError }); };
+  global.sb = chainSb({
+    upload: function () {
+      assert.strictEqual(customBtn.disabled, true);
+      assert.strictEqual(customBtn.textContent, '上传中…');
+      return Promise.reject(new TypeError('Failed to fetch'));
+    }
+  });
+  await checkinCustom();
+  assert.strictEqual(customBtn.disabled, false);
+  assert.strictEqual(customBtn.textContent, '打卡提交给视训师');
+  assert.ok(customToasts[0].text.indexOf('网络连接失败，请检查网络后重试') >= 0);
+  assert.strictEqual(global.sb.ops.some(function (op) { return op.op === 'insert'; }), false);
+
+  customBtn.disabled = true;
+  customBtn.textContent = '上传中…';
+  customToasts.length = 0;
+  global.sb = chainSb({
+    upload: function () { return Promise.resolve({ error: { message: 'row-level security violation' } }); }
+  });
+  await checkinCustom();
+  assert.strictEqual(customBtn.disabled, false);
+  assert.strictEqual(customBtn.textContent, '打卡提交给视训师');
+  assert.ok(customToasts[0].text.indexOf('没有权限操作') >= 0);
+  assert.strictEqual(global.sb.ops.some(function (op) { return op.op === 'insert'; }), false);
+
+  var recordBtn = { disabled: false, textContent: '提交回传' };
+  var recordStatus = '';
+  global.$ = function (q) {
+    if (q === 'submit-btn') return recordBtn;
+    if (q === 'hit') return { value: '3' };
+    if (q === 'miss') return { value: '1' };
+    if (q === 'media-input') return { files: [{ name: 'shot.jpg', type: 'image/jpeg' }, { name: 'clip.mp4', type: 'video/mp4' }] };
+    return null;
+  };
+  global.setStatus = function (text) { recordStatus = text; };
+  global.home = function () { global.home.calls = (global.home.calls || 0) + 1; };
+  global.state.childId = 'child-9';
+  global.sb = chainSb({
+    upload: function (path, file, ops) {
+      var n = ops.filter(function (op) { return op.op === 'upload'; }).length;
+      if (n === 1) return Promise.resolve({ error: null });
+      assert.ok(recordStatus.indexOf('正在提交') === -1 || recordStatus.indexOf('正在上传') >= 0);
+      return Promise.reject(new TypeError('Failed to fetch'));
+    }
+  });
+  await submitRecord();
+  assert.strictEqual(global.home.calls || 0, 0);
+  assert.strictEqual(recordBtn.disabled, false);
+  assert.strictEqual(recordBtn.textContent, '提交回传');
+  assert.ok(recordStatus.indexOf('正在提交') === -1);
+  assert.ok(recordStatus.indexOf('网络连接失败，请检查网络后重试') >= 0);
+  assert.strictEqual(global.sb.ops.filter(function (op) { return op.op === 'insert'; }).length, 0, 'failed peripheral upload must not leave a record');
+
+  recordStatus = '';
+  global.sb = chainSb({
+    upload: function () { return Promise.resolve({ error: { message: 'Failed to fetch' } }); }
+  });
+  await submitRecord();
+  assert.strictEqual(recordBtn.disabled, false);
+  assert.ok(recordStatus.indexOf('上传失败') >= 0);
+  assert.ok(recordStatus.indexOf('网络连接失败，请检查网络后重试') >= 0);
+  assert.strictEqual(global.sb.ops.some(function (op) { return op.op === 'insert'; }), false);
+
+  global.sb = chainSb({});
+  await submitRecord();
+  var ops = global.sb.ops.map(function (op) { return op.op; });
+  assert.deepStrictEqual(ops, ['upload', 'upload', 'insert']);
+  var inserted = global.sb.ops[2].row;
+  assert.strictEqual(inserted.child_id, 'child-9');
+  assert.strictEqual(inserted.type, 'peripheral');
+  assert.deepStrictEqual(inserted.data, { hit: 3, miss: 1 });
+  assert.strictEqual(inserted.media.length, 2);
+  assert.ok(inserted.media[0].indexOf('child-9/peripheral/') === 0);
+  assert.ok(/\.jpg$/.test(inserted.media[0]));
+  assert.ok(/\.mp4$/.test(inserted.media[1]));
+  assert.strictEqual(recordBtn.disabled, true);
+  assert.ok(recordStatus.indexOf('回传成功') >= 0);
+
+  global.$ = function (q) {
+    if (q === 'submit-btn') return recordBtn;
+    if (q === 'hit') return { value: '2' };
+    if (q === 'miss') return { value: '0' };
+    if (q === 'media-input') return { files: [] };
+    return null;
+  };
+  recordBtn.disabled = false;
+  global.sb = chainSb({
+    insert: function () { return Promise.reject(new TypeError('Failed to fetch')); }
+  });
+  await submitRecord();
+  assert.strictEqual(recordBtn.disabled, false);
+  assert.strictEqual(recordBtn.textContent, '提交回传');
+  assert.ok(recordStatus.indexOf('网络连接失败，请检查网络后重试') >= 0);
+  assert.strictEqual(global.sb.ops.some(function (op) { return op.op === 'upload'; }), false);
+
+  console.log('feedback.test.js ok');
+})().catch(function (err) {
+  console.error(err);
+  process.exit(1);
+});
