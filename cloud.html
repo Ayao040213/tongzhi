@@ -458,7 +458,7 @@
 <script src="supabase.js"></script>
 <script src="js/util.js"></script>
 <script src="js/auth.js"></script>
-<script src="feedback.js?v=3"></script>
+<script src="feedback.js?v=4"></script>
 <script>
   var SUPABASE_URL = 'https://ucjgcybsvrkfgkszcygq.supabase.co';
   var ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjamdjeWJzdnJrZmdrc3pjeWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDY5ODIsImV4cCI6MjEwNzQ4Mjk4Mn0.tMtklRCxDjtO5Lb5cMjqg_LeB5cUxfVOZxxwNRO0aDw';
@@ -857,8 +857,14 @@
   }
 
   function todayStrCN() {
+    if (window.Feedback && Feedback.todayTitle) return Feedback.todayTitle(new Date());
     var d = new Date();
     return d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日';
+  }
+  function cloudRxGate(childId, kind) {
+    if (!window.Feedback || !Feedback.parentRxGate) return { allowed: true, message: '' };
+    var rxState = (typeof state === 'undefined') ? null : state;
+    return Feedback.parentRxGate(rxState, childId, kind, new Date());
   }
   function rxProjectsOf(p) {
     try { return JSON.parse(p.items || '[]'); } catch (e) { return []; }
@@ -957,24 +963,19 @@
   }
 
   // 家长：首页列出处方 + 查看详情
-  async function renderRxHome(children) {
+  async function renderRxHome(children, prescriptions, rxError) {
     var box = $('rx-home-list');
     if (!box) return;
-    var res = await sb.from('prescriptions').select('*');
-    if (res.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(res.error.message)) + '</div>'; return; }
-    if (!res.data.length) { box.innerHTML = emptyNext('视训师还没有布置今日作业'); return; }
-    var nameOf = {};
-    children.forEach(function (k) { nameOf[k.id] = k.name; });
-    res.data.sort(function (a, b) { return new Date(b.created_at) - new Date(a.created_at); }).forEach(function (p) {
-      var titles = rxProjectsOf(p).map(function (x) { return x.title; }).join(' / ');
-      box.innerHTML +=
-        '<div class="list-item">' +
-          '<span class="icon">📋</span>' +
-          '<div><div class="t">' + esc(nameOf[p.child_id] || '孩子') + ' · ' + esc(p.title || '今日作业') + '</div>' +
-          '<div class="s">' + esc(titles) + '</div></div>' +
-          '<button type="button" class="btn btn-primary btn-small" onclick="viewRx(\'' + p.id + '\')">去做</button>' +
-        '</div>';
-    });
+    if (prescriptions === undefined) {
+      var res = await sb.from('prescriptions').select('*');
+      if (res.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(res.error.message)) + '</div>'; return; }
+      prescriptions = res.data || [];
+      state.prescriptions = prescriptions;
+    }
+    if (rxError) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(rxError)) + '</div>'; return; }
+    box.innerHTML = (window.Feedback && Feedback.renderParentRxList)
+      ? Feedback.renderParentRxList(children || [], prescriptions || [], new Date())
+      : '';
   }
 
   async function viewRx(id) {
@@ -988,6 +989,9 @@
     var fbRes = await fbP;
     if (cr.data) cname = cr.data.name;
     var fbRecs = fbRes.error ? null : (fbRes.data || []);
+    if (!Array.isArray(state.prescriptions)) state.prescriptions = [p];
+    else if (!state.prescriptions.some(function (row) { return row && row.id === p.id; })) state.prescriptions = state.prescriptions.concat([p]);
+    var rxList = state.prescriptions;
     var c = $('content');
     c.innerHTML = '<h2 class="page-title">今日作业</h2>' +
       '<div id="rx-game-actions"></div>' +
@@ -1005,20 +1009,28 @@
     var games = rxProjectsOf(p).filter(function (pr) { return isGameProject(pr.key); });
     if (!games.length) return;
     var isBig = window.innerWidth >= 900;
-    if (fbRecs == null) ga.innerHTML += '<p class="fb-cap">完成状态暂时读不出来，练习仍可以开始。</p>';
+    if (fbRecs == null && games.some(function (g) { return cloudRxGate(p.child_id, g.key).allowed; })) {
+      ga.innerHTML += '<p class="fb-cap">完成状态暂时读不出来，练习仍可以开始。</p>';
+    }
     games.forEach(function (g) {
       var gm = GAMES.filter(function (x) { return x.key === g.key; })[0];
       if (!gm) return;
       var badge = '';
       var again = '';
+      var st = null;
       if (fbRecs && window.Feedback) {
-        var st = Feedback.todayStatus(fbRecs, g.key, new Date());
-        badge = '<span class="fb-badge ' + (st.done ? 'done' : 'todo') + '">' + esc(Feedback.badgeText(st.done, 'parent')) + '</span>';
-        if (st.done) again = '<p class="fb-cap">' + esc(PC.taskAgain || '今天已经打过卡，还可以再做一次；多次打卡的时长会加在一起。') + '</p>';
-        else again = '<p class="fb-cap">' + esc(PC.taskShort || '做很短也可以打卡。打卡后显示「今日作业已完成」，不要求练满固定分钟。') + '</p>';
+        st = Feedback.todayStatus(fbRecs, g.key, new Date(), rxList, p.child_id);
+        badge = '<span class="fb-badge ' + (st.done ? 'done' : 'todo') + '">' + esc(Feedback.badgeText(st.done, 'parent', st)) + '</span>';
+        if (st.waiting) again = '<p class="fb-cap">' + esc(Feedback.WAIT_COPY || '等待视训师布置') + '</p>';
+        else if (st.done) again = '<p class="fb-cap">' + esc(PC.taskAgain || '今天已经打过卡，还可以再做一次；多次打卡的时长会加在一起。') + '</p>';
+        else if (st.assigned) again = '<p class="fb-cap">' + esc(PC.taskShort || '做很短也可以打卡。打卡后显示「今日作业已完成」，不要求练满固定分钟。') + '</p>';
       }
+      var gate = cloudRxGate(p.child_id, g.key);
+      if (!again && !gate.allowed && gate.message) again = '<p class="fb-cap">' + esc(gate.message) + '</p>';
       var head = '<div class="fb-inline"><div class="t">' + gm.icon + ' ' + esc(gm.title) + '</div>' + badge + '</div>';
-      if (isBig) {
+      if (!gate.allowed) {
+        ga.innerHTML += '<div class="card" style="margin-top:12px;" data-upload="0">' + head + again + '</div>';
+      } else if (isBig) {
         ga.innerHTML += '<div class="card" style="margin-top:12px;">' + head +
           '<button class="btn btn-primary" onclick="launchGame(\'' + g.key + '\',\'' + p.child_id + '\',\'' + esc(cname) + '\')">' + esc(PC.start || '按视训师布置的练习开始') + '</button>' +
           again +
@@ -1751,6 +1763,11 @@
       toast(copy.noChild || '没有关联到孩子，这次没法打卡。', true);
       return;
     }
+    var rxGate = cloudRxGate(pursuit.cid, 'pursuit');
+    if (!rxGate.allowed) {
+      if (rxGate.message) { showPracticeMsg(rxGate.message); toast(rxGate.message, true); }
+      return;
+    }
     if (btn) { btn.disabled = true; btn.textContent = copy.uploading || '打卡上传中…'; }
     var data = window.Feedback
       ? Feedback.pursuitRecordData(pursuit)
@@ -1975,6 +1992,11 @@
       toast(copy.noChild || '没有关联到孩子，这次没法打卡。', true);
       return;
     }
+    var rxGate = cloudRxGate(hart.cid, 'hart');
+    if (!rxGate.allowed) {
+      if (rxGate.message) { showPracticeMsg(rxGate.message); toast(rxGate.message, true); }
+      return;
+    }
     if (btn) { btn.disabled = true; btn.textContent = copy.uploading || '打卡上传中…'; }
     var data = window.Feedback
       ? Feedback.hartRecordData(hart)
@@ -2170,6 +2192,11 @@
 
   // 从今日作业启动这两门练习（家长端，关联孩子、可打卡）
   function launchGame(key, cid, cname) {
+    var rxGate = cloudRxGate(cid, key);
+    if (!rxGate.allowed) {
+      if (rxGate.message) toast(rxGate.message, true);
+      return;
+    }
     if (key === 'pursuit') openPursuitConfig(cid, cname);
     else if (key === 'hart') openHartConfig(cid, cname);
   }
@@ -2202,14 +2229,17 @@
     if (!el || !window.Feedback) return;
     var model = fbStore[el.getAttribute('data-fb-root')];
     if (!model) return;
-    el.innerHTML = Feedback.renderPanel({
+    var panel = {
       audience: model.audience,
       childName: model.childName,
       records: model.records,
       range: el.getAttribute('data-range') === '14' ? 14 : 7,
       hartMetric: el.getAttribute('data-hart') === 'accuracy' ? 'accuracy' : 'duration',
       showNote: model.showNote !== false
-    });
+    };
+    if (Object.prototype.hasOwnProperty.call(model, 'prescriptions')) panel.prescriptions = model.prescriptions;
+    if (model.childId) panel.childId = model.childId;
+    el.innerHTML = Feedback.renderPanel(panel);
   }
   function mountFeedbackCard(el, model) {
     if (!el || !window.Feedback) return;
@@ -2247,11 +2277,16 @@
       paintFeedback(root);
     }
   });
-  async function renderParentFeedback(kids) {
+  async function renderParentFeedback(kids, prescriptions, rxError) {
     var slot = $('fb-home');
     if (!slot || !window.Feedback) return;
     var seq = ++fbPaintSeq;
     slot.innerHTML = '<div class="sect">今日完成</div>' + Feedback.noteBlock('parent') + '<div id="fb-home-cards"></div>';
+    var early = $('fb-home-cards');
+    if (rxError) {
+      if (early) early.innerHTML = '<div class="empty">今日完成暂时读不出来：' + esc(errText(rxError)) + '</div>';
+      return;
+    }
     var res = await loadLockedRecords(kids.map(function (k) { return k.id; }));
     if (seq !== fbPaintSeq) return;
     var box = $('fb-home-cards');
@@ -2260,6 +2295,7 @@
       box.innerHTML = '<div class="empty">今日完成暂时读不出来：' + esc(errText(res.error.message)) + '</div>';
       return;
     }
+    var rxRows = prescriptions || [];
     var grouped = Feedback.groupByChild(res.data || []);
     kids.forEach(function (k) {
       var el = document.createElement('div');
@@ -2269,7 +2305,9 @@
         audience: 'parent',
         childName: k.name || '孩子',
         records: grouped[k.id] || [],
-        showNote: false
+        showNote: false,
+        prescriptions: rxRows,
+        childId: k.id
       });
     });
   }
@@ -2356,12 +2394,30 @@
       '<p class="page-sub" style="margin-bottom:6px;">跟着教程做，拍照 / 录视频回传给视训师</p>' +
       '<div id="child-list"></div>';
 
+    var rxRes = await sb.from('prescriptions').select('*');
+    var rxError = rxRes.error ? rxRes.error.message : '';
+    state.prescriptions = rxRes.error ? null : (rxRes.data || []);
+
     var box = $('child-list');
     if (cr.error) { box.innerHTML = '<div class="empty">读取失败：' + esc(errText(cr.error.message)) + '</div>'; }
     else if (!kids.length) { box.innerHTML = emptyNext('视训师还没有添加孩子，等等再来'); }
     else {
-      var cols = '1fr 1fr 1fr';
       kids.forEach(function (k) {
+        var daily = '';
+        if (state.prescriptions && window.Feedback && Feedback.parentTasks) {
+          var plan = Feedback.parentTasks(state.prescriptions, k.id, new Date());
+          if (plan.waiting) {
+            daily = '<p class="fb-cap" data-upload="0">' + esc(plan.message) + '</p>';
+          } else {
+            var btns = [];
+            if (plan.offline.indexOf('eye') >= 0) btns.push('<button class="btn btn-ghost btn-small" onclick="openEyeForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">眼位照</button>');
+            if (plan.offline.indexOf('marsden') >= 0) btns.push('<button class="btn btn-ghost btn-small" onclick="openMarsdenForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">马斯登球</button>');
+            if (plan.offline.indexOf('peripheral') >= 0) btns.push('<button class="btn btn-ghost btn-small" onclick="openRecordForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">周边训练</button>');
+            if (btns.length) {
+              daily = '<div style="display:grid; grid-template-columns:' + btns.map(function () { return '1fr'; }).join(' ') + '; gap:6px; margin-top:12px; flex:none;">' + btns.join('') + '</div>';
+            }
+          }
+        }
         box.innerHTML +=
           '<div class="list-item" style="flex-direction:column; align-items:stretch;">' +
             '<div style="display:flex; align-items:center; gap:10px; flex:none;">' +
@@ -2369,19 +2425,20 @@
               '<div><div class="t">' + esc(k.name) + '</div>' +
               '<div class="s">' + (k.age ? (k.age + ' 岁') : '') + '</div></div>' +
             '</div>' +
-            '<div style="display:grid; grid-template-columns:' + cols + '; gap:6px; margin-top:12px; flex:none;">' +
-              '<button class="btn btn-ghost btn-small" onclick="openEyeForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">眼位照</button>' +
-              '<button class="btn btn-ghost btn-small" onclick="openMarsdenForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">马斯登球</button>' +
-              '<button class="btn btn-ghost btn-small" onclick="openRecordForm(\'' + k.id + '\',\'' + esc(k.name) + '\')">周边训练</button>' +
-            '</div>' +
+            daily +
           '</div>';
       });
     }
-    renderRxHome(kids);
+    renderRxHome(kids, state.prescriptions, rxError);
     renderCustomHome(kids);
-    if (!cr.error && kids.length) renderParentFeedback(kids);
+    if (!cr.error && kids.length) renderParentFeedback(kids, state.prescriptions, rxError);
   }
   function openRecordForm(cid, cname) {
+    var rxGate = cloudRxGate(cid, 'peripheral');
+    if (!rxGate.allowed) {
+      if (rxGate.message) toast(rxGate.message, true);
+      return;
+    }
     state.childId = cid;
     var c = $('content');
     c.innerHTML =
@@ -2399,6 +2456,12 @@
   }
   async function submitRecord() {
     var btn = $('submit-btn');
+    var rxState = (typeof state === 'undefined') ? null : state;
+    var rxGate = cloudRxGate(rxState && rxState.childId, 'peripheral');
+    if (!rxGate.allowed) {
+      if (rxGate.message) setStatus(rxGate.message, true);
+      return;
+    }
     btn.disabled = true;
     setStatus('正在提交……');
     try {
@@ -2469,6 +2532,11 @@
   function eyeCurPhotos() { return eyePhotos[eyeStage] || (eyePhotos[eyeStage] = {}); }
 
   function openEyeForm(cid, cname) {
+    var rxGate = cloudRxGate(cid, 'eye');
+    if (!rxGate.allowed) {
+      if (rxGate.message) toast(rxGate.message, true);
+      return;
+    }
     state.childId = cid;
     eyeChildName = cname;
     eyeStage = 'right';
@@ -2649,6 +2717,13 @@
 
   async function submitEye() {
     var btn = $('eye-gen');
+    var rxState = (typeof state === 'undefined') ? null : state;
+    var rxGate = cloudRxGate(rxState && rxState.childId, 'eye');
+    if (!rxGate.allowed) {
+      if (rxGate.message) toast(rxGate.message, true);
+      if (btn) btn.disabled = false;
+      return;
+    }
     btn.disabled = true;
     btn.textContent = '上传中…';
     try {
@@ -2683,6 +2758,11 @@
   var marsdenChildName = '';
 
   function openMarsdenForm(cid, cname) {
+    var rxGate = cloudRxGate(cid, 'marsden');
+    if (!rxGate.allowed) {
+      if (rxGate.message) toast(rxGate.message, true);
+      return;
+    }
     state.childId = cid;
     marsdenChildName = cname;
     marsdenVideos = {};
@@ -2777,6 +2857,11 @@
     if (!keys.length) { toast('请先录至少一段视频', true); return; }
     var btn = $('marsden-upload');
     var cid = state.childId;
+    var rxGate = cloudRxGate(cid, 'marsden');
+    if (!rxGate.allowed) {
+      if (rxGate.message) toast(rxGate.message, true);
+      return;
+    }
     btn.disabled = true;
     try {
       var media = [];

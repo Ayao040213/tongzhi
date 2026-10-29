@@ -1,7 +1,8 @@
 /* 回传最小版（M2）+ 两门练习的打卡口径（M4）
- * 完成：当日该孩子该练习有成功打卡记录即完成。有效时长、正确率不挡完成，不设练满分钟门槛。
- * 曲线：近 7 / 14 日。纵轴默认有效时长（data.actual 秒）。哈特可切正确率/达标率 = 答对÷(答对+答错)。
- * 没有对错记录时正确率留空，不记成 0%。追视是时长型，本月不单列正确率。不改 records 表。
+ * 家长完成态跟「当日布置」走：没有当天视训师布置 → 「等待视训师布置」，打卡和回传不放行。
+ * 有当天布置时，只认布置之后、对得上当日项目的打卡。有效时长、正确率不挡完成，不设练满分钟门槛。
+ * 不传布置时（视训师回传曲线）仍按当日有没有打卡。曲线：近 7 / 14 日，纵轴默认有效时长（data.actual 秒）。
+ * 哈特可切正确率/达标率 = 答对÷(答对+答错)。没有对错记录时正确率留空，不记成 0%。追视是时长型，本月不单列正确率。不改 records 表。
  */
 (function (root, factory) {
   var api = factory();
@@ -84,6 +85,156 @@
     return (d.getMonth() + 1) + '月' + d.getDate() + '日';
   }
 
+  // 与 B 端 saveRx 的 title 一致：2026年10月29日（月、日不补零）。
+  var WAIT_COPY = '等待视训师布置';
+  var GAME_KEYS = { pursuit: 1, hart: 1 };
+  var RETURN_KEYS = { eye: 1, marsden: 1, peripheral: 1 };
+
+  function todayTitle(now) {
+    var d = asDate(now) || new Date();
+    return d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日';
+  }
+
+  function asRxList(prescriptions) {
+    if (Array.isArray(prescriptions)) return prescriptions;
+    if (prescriptions && typeof prescriptions === 'object') return [prescriptions];
+    return [];
+  }
+
+  function rxItems(p) {
+    if (!p) return [];
+    var items = p.items != null ? p.items : p.projects;
+    if (typeof items === 'string') {
+      try { items = JSON.parse(items); } catch (e) { return []; }
+    }
+    if (!Array.isArray(items)) return [];
+    var out = [];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i] && items[i].key) out.push(items[i]);
+    }
+    return out;
+  }
+
+  function rxHas(p, key) {
+    var items = rxItems(p);
+    for (var i = 0; i < items.length; i++) if (items[i].key === key) return true;
+    return false;
+  }
+
+  function rxStamp(p) {
+    if (!p) return null;
+    return asDate(p.created_at != null ? p.created_at : p.created);
+  }
+
+  // 当天布置 = title/date 等于本地今日中文日期的最新一条（同孩子）。
+  function todayPrescription(prescriptions, childId, now) {
+    var title = todayTitle(now || new Date());
+    var list = asRxList(prescriptions);
+    var best = null;
+    var bestTs = -Infinity;
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i];
+      if (!p) continue;
+      if (childId && p.child_id && p.child_id !== childId) continue;
+      var t = String(p.title != null ? p.title : (p.date != null ? p.date : '')).trim();
+      if (t !== title) continue;
+      var created = rxStamp(p);
+      var ts = created ? created.getTime() : 0;
+      if (!best || ts >= bestTs) { best = p; bestTs = ts; }
+    }
+    return best;
+  }
+
+  function hasCheckinForRx(records, type, childId, rx, now) {
+    var today = dayKey(now || new Date());
+    var since = rxStamp(rx);
+    var sinceMs = since ? since.getTime() : null;
+    var list = records || [];
+    for (var i = 0; i < list.length; i++) {
+      var rec = list[i];
+      if (!rec || rec.type !== type) continue;
+      if (childId && rec.child_id && rec.child_id !== childId) continue;
+      var when = asDate(rec.created_at);
+      if (!when || dayKey(when) !== today) continue;
+      if (sinceMs != null && when.getTime() < sinceMs) continue;
+      return true;
+    }
+    return false;
+  }
+
+  function parentTasks(prescriptions, childId, now) {
+    var rx = todayPrescription(prescriptions, childId, now);
+    if (!rx) return { waiting: true, message: WAIT_COPY, offline: [], games: [], prescription: null };
+    var items = rxItems(rx);
+    var offline = [];
+    var games = [];
+    for (var i = 0; i < items.length; i++) {
+      var key = items[i].key;
+      if (GAME_KEYS[key]) games.push(key);
+      else if (RETURN_KEYS[key]) offline.push(key);
+    }
+    return { waiting: false, message: '', offline: offline, games: games, prescription: rx };
+  }
+
+  function uploadGate(prescriptions, childId, kind, now) {
+    if (kind === 'custom') return { allowed: true, waiting: false, message: '' };
+    if (prescriptions == null) return { allowed: false, waiting: false, message: '' };
+    var tasks = parentTasks(prescriptions, childId, now);
+    if (tasks.waiting) return { allowed: false, waiting: true, message: WAIT_COPY };
+    if (!kind) return { allowed: true, waiting: false, message: '' };
+    var keys = tasks.offline.concat(tasks.games);
+    for (var i = 0; i < keys.length; i++) {
+      if (keys[i] === kind) return { allowed: true, waiting: false, message: '' };
+    }
+    return { allowed: false, waiting: false, message: '' };
+  }
+
+  function parentRxGate(stateObj, childId, kind, now) {
+    var prescriptions = [];
+    if (stateObj && Object.prototype.hasOwnProperty.call(stateObj, 'prescriptions')) {
+      prescriptions = stateObj.prescriptions;
+    }
+    return uploadGate(prescriptions, childId, kind, now || new Date());
+  }
+
+  function rxDomId(id) {
+    var s = String(id == null ? '' : id);
+    return /^[A-Za-z0-9-]+$/.test(s) ? s : '';
+  }
+
+  function renderParentRxList(children, prescriptions, now) {
+    var kids = children || [];
+    var html = '';
+    var clock = now || new Date();
+    if (!kids.length) {
+      return '<div class="fb-empty" data-rx-wait="1">' + esc(WAIT_COPY) + '</div>';
+    }
+    for (var i = 0; i < kids.length; i++) {
+      var kid = kids[i];
+      if (!kid || !kid.id) continue;
+      var name = kid.name || '孩子';
+      var rx = todayPrescription(prescriptions, kid.id, clock);
+      if (!rx) {
+        html += '<div class="list-item" data-rx-wait="1" data-child="' + esc(kid.id) + '">' +
+          '<span class="icon">📋</span>' +
+          '<div><div class="t">' + esc(name) + '</div>' +
+          '<div class="s">' + esc(WAIT_COPY) + '</div></div></div>';
+        continue;
+      }
+      var titles = rxItems(rx).map(function (x) { return x.title || x.key; }).join(' / ');
+      var id = rxDomId(rx.id);
+      var btn = id
+        ? '<button type="button" class="btn btn-primary btn-small" onclick="viewRx(\'' + id + '\')">去做</button>'
+        : '';
+      html += '<div class="list-item" data-rx-today="1" data-child="' + esc(kid.id) + '">' +
+        '<span class="icon">📋</span>' +
+        '<div><div class="t">' + esc(name) + ' · ' + esc(rx.title || '今日作业') + '</div>' +
+        '<div class="s">' + esc(titles) + '</div></div>' +
+        btn + '</div>';
+    }
+    return html;
+  }
+
   function bucket(records, type, days) {
     var map = {};
     for (var i = 0; i < days.length; i++) {
@@ -128,8 +279,26 @@
     return days.map(function (d) { return map[d.key]; });
   }
 
-  function todayStatus(records, type, now) {
-    return bucket(records, type, windowDays(1, now))[0];
+  function todayStatus(records, type, now, prescriptions, childId) {
+    var base = bucket(records, type, windowDays(1, now))[0];
+    // 不传布置：视训师曲线 / 旧口径，当日有打卡即完成。
+    if (arguments.length < 4) return base;
+    var rx = todayPrescription(prescriptions, childId, now);
+    var assigned = !!(rx && rxHas(rx, type));
+    return {
+      key: base.key,
+      label: base.label,
+      today: base.today,
+      done: assigned ? hasCheckinForRx(records, type, childId, rx, now) : false,
+      seconds: base.seconds,
+      correct: base.correct,
+      wrong: base.wrong,
+      sessions: base.sessions,
+      accuracy: base.accuracy,
+      waiting: !rx,
+      assigned: assigned,
+      uploadAllowed: assigned
+    };
   }
 
   function groupByChild(records) {
@@ -144,7 +313,8 @@
     return map;
   }
 
-  function badgeText(done, audience) {
+  function badgeText(done, audience, status) {
+    if (status && status.waiting && audience !== 'therapist') return WAIT_COPY;
     if (audience === 'therapist') return done ? '完成' : '未完成';
     return done ? '今日作业已完成' : '今日未完成';
   }
@@ -183,6 +353,7 @@
   }
 
   var PRACTICE_COPY = {
+    waiting: WAIT_COPY,
     exit: '✕ 退出练习',
     end: '结束这次练习',
     start: '按视训师布置的练习开始',
@@ -486,6 +657,8 @@
     var hartMetric = opts.hartMetric === 'accuracy' ? 'accuracy' : 'duration';
     var records = opts.records || [];
     var days = windowDays(range, now);
+    var assignmentAware = audience === 'parent' && Object.prototype.hasOwnProperty.call(opts, 'prescriptions');
+    var childId = opts.childId || '';
     var html = '';
     if (audience === 'parent') {
       html += '<div class="fb-child">' + esc(opts.childName || '孩子') + '</div>';
@@ -494,13 +667,22 @@
     for (var i = 0; i < LOCKED.length; i++) {
       var ex = LOCKED[i];
       var todayDays = windowDays(1, now);
-      var today = bucket(records, ex.key, todayDays)[todayDays.length - 1];
-      var sub = auxText(today, ex.key);
+      var practice = bucket(records, ex.key, todayDays)[todayDays.length - 1];
+      var status = practice;
+      if (assignmentAware) {
+        status = todayStatus(records, ex.key, now, opts.prescriptions, childId);
+        if (!status.waiting && !status.assigned) continue;
+      }
+      var sub = auxText(practice, ex.key);
       if (audience === 'therapist') sub = fmtDayCN(now) + ' · ' + sub;
-      html += '<div class="fb-row" data-ex="' + ex.key + '" data-done="' + (today.done ? '1' : '0') + '">' +
+      var rowDone = assignmentAware ? !!status.done : !!practice.done;
+      var waiting = assignmentAware && !!status.waiting;
+      html += '<div class="fb-row" data-ex="' + ex.key + '" data-done="' + (rowDone ? '1' : '0') + '"' +
+        (waiting ? ' data-wait="1"' : '') +
+        (assignmentAware ? (' data-upload="' + (status.uploadAllowed ? '1' : '0') + '"') : '') + '>' +
         '<span class="fb-icon" aria-hidden="true">' + ex.icon + '</span>' +
         '<div class="fb-main"><div class="t">' + ex.label + '</div><div class="s">' + esc(sub) + '</div></div>' +
-        '<span class="fb-badge ' + (today.done ? 'done' : 'todo') + '">' + esc(badgeText(today.done, audience)) + '</span>' +
+        '<span class="fb-badge ' + (rowDone ? 'done' : 'todo') + '">' + esc(badgeText(rowDone, audience, assignmentAware ? status : null)) + '</span>' +
         '</div>';
     }
     var quietRange = true;
@@ -524,6 +706,14 @@
     dayKey: dayKey,
     windowDays: windowDays,
     bucket: bucket,
+    WAIT_COPY: WAIT_COPY,
+    todayTitle: todayTitle,
+    rxItems: rxItems,
+    todayPrescription: todayPrescription,
+    parentTasks: parentTasks,
+    uploadGate: uploadGate,
+    parentRxGate: parentRxGate,
+    renderParentRxList: renderParentRxList,
     todayStatus: todayStatus,
     groupByChild: groupByChild,
     badgeText: badgeText,
