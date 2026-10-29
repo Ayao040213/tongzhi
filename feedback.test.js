@@ -240,6 +240,152 @@ assert.strictEqual(Feedback.recordCaption('hart', { correct: 1, wrong: 9, actual
 assert.ok(Feedback.recordCaption('pursuit', { trajectory: 'v', speed: 'slow', actual: 90 }).indexOf('有效时长 1 分 30 秒') >= 0);
 assert.ok(Feedback.recordCaption('pursuit', { speed: 'slow', actual: 90 }).indexOf('慢速') >= 0);
 
+// 当日布置挂钩：同日旧打卡不能冒充新布置已完成；没有当天布置则等待且不许上传。
+var DAY = at(2026, 10, 29, 16, 0);
+function rxOn(when, childId, keys, id) {
+  return {
+    id: id || ('rx-' + childId),
+    child_id: childId,
+    title: Feedback.todayTitle(when),
+    items: JSON.stringify(keys.map(function (k) { return { key: k, title: k, param: '新参数·今日新布置' }; })),
+    created_at: when.toISOString()
+  };
+}
+var morningHart = rec('hart', at(2026, 10, 29, 9, 30), { actual: 45, correct: 5, wrong: 5 }, 'kid-hart');
+var newHartRx = rxOn(at(2026, 10, 29, 14, 0), 'kid-hart', ['hart'], 'rx-new-1029');
+assert.strictEqual(Feedback.todayTitle(at(2026, 10, 9, 8, 0)), '2026年10月9日');
+assert.strictEqual(Feedback.todayStatus([morningHart], 'hart', DAY).done, true, 'no prescription argument keeps check-in = done');
+var beforeItems = Feedback.todayStatus([morningHart], 'hart', DAY, [newHartRx], 'kid-hart');
+assert.strictEqual(beforeItems.waiting, false);
+assert.strictEqual(beforeItems.assigned, true);
+assert.strictEqual(beforeItems.done, false, 'check-in before today’s assignment is not done');
+assert.strictEqual(beforeItems.uploadAllowed, true);
+var earlyPanel = Feedback.renderPanel({
+  audience: 'parent',
+  childName: '哈特娃',
+  records: [morningHart],
+  now: DAY,
+  showNote: false,
+  prescriptions: [newHartRx],
+  childId: 'kid-hart'
+});
+assert.strictEqual(earlyPanel.indexOf('今日作业已完成'), -1, 'new assignment must not keep the done badge');
+assert.ok(earlyPanel.indexOf('data-ex="hart" data-done="0"') >= 0);
+assert.ok(earlyPanel.indexOf('今日未完成') >= 0);
+assert.strictEqual(earlyPanel.indexOf('data-ex="pursuit"'), -1, 'unassigned exercise is not listed as today homework');
+assert.strictEqual(earlyPanel.indexOf('师傅'), -1);
+
+var afterHart = rec('hart', at(2026, 10, 29, 15, 0), { actual: 4, correct: 1, wrong: 9 }, 'kid-hart');
+var afterStatus = Feedback.todayStatus([morningHart, afterHart], 'hart', DAY, [newHartRx], 'kid-hart');
+assert.strictEqual(afterStatus.done, true, 'post-assignment check-in completes even when short and low accuracy');
+assert.ok(Math.abs(afterStatus.accuracy - (5 + 1) / (5 + 5 + 1 + 9)) < 1e-9);
+var donePanel = Feedback.renderPanel({
+  audience: 'parent',
+  childName: '哈特娃',
+  records: [morningHart, afterHart],
+  now: DAY,
+  showNote: false,
+  prescriptions: [newHartRx],
+  childId: 'kid-hart'
+});
+assert.ok(donePanel.indexOf('今日作业已完成') >= 0);
+assert.ok(donePanel.indexOf('data-ex="hart" data-done="1"') >= 0);
+assert.ok(donePanel.indexOf('data-upload="1"') >= 0);
+
+var emptyJudge = rec('hart', at(2026, 10, 29, 15, 5), { actual: 0, correct: 0, wrong: 0 }, 'kid-hart');
+var emptyDone = Feedback.todayStatus([emptyJudge], 'hart', DAY, [newHartRx], 'kid-hart');
+assert.strictEqual(emptyDone.done, true, 'zero seconds and no judgments still complete once assigned');
+assert.strictEqual(emptyDone.accuracy, null);
+
+var firstRx = rxOn(at(2026, 10, 29, 10, 0), 'kid-hart', ['hart'], 'rx-am');
+var secondRx = rxOn(at(2026, 10, 29, 14, 0), 'kid-hart', ['hart'], 'rx-pm');
+var between = rec('hart', at(2026, 10, 29, 11, 0), { actual: 90, correct: 8, wrong: 0 }, 'kid-hart');
+assert.strictEqual(Feedback.todayPrescription([firstRx, secondRx], 'kid-hart', DAY).id, 'rx-pm');
+assert.strictEqual(Feedback.todayStatus([between], 'hart', DAY, [firstRx, secondRx], 'kid-hart').done, false);
+assert.strictEqual(Feedback.todayStatus([between, afterHart], 'hart', DAY, [secondRx, firstRx], 'kid-hart').done, true);
+
+var arrayItems = {
+  id: 'rx-arr',
+  child_id: 'kid-hart',
+  title: '  ' + Feedback.todayTitle(DAY) + '  ',
+  items: [{ key: 'pursuit', title: '追视小球' }],
+  created_at: at(2026, 10, 29, 14, 0).toISOString()
+};
+assert.strictEqual(Feedback.todayStatus([morningHart], 'pursuit', DAY, [arrayItems], 'kid-hart').done, false);
+var pursuitAfter = rec('pursuit', at(2026, 10, 29, 15, 0), { actual: 3 }, 'kid-hart');
+assert.strictEqual(Feedback.todayStatus([pursuitAfter], 'pursuit', DAY, [arrayItems], 'kid-hart').done, true);
+assert.strictEqual(Feedback.uploadGate([arrayItems], 'kid-hart', 'hart', DAY).allowed, false);
+assert.strictEqual(Feedback.uploadGate([arrayItems], 'kid-hart', 'pursuit', DAY).allowed, true);
+
+var otherKidRx = rxOn(at(2026, 10, 29, 8, 0), 'other-kid', ['hart'], 'rx-other');
+var otherStatus = Feedback.todayStatus([afterHart], 'hart', DAY, [otherKidRx], 'kid-hart');
+assert.strictEqual(otherStatus.waiting, true);
+assert.strictEqual(otherStatus.done, false);
+
+var yesterdayRx = rxOn(at(2026, 10, 28, 9, 0), 'kid-hart', ['hart', 'peripheral', 'eye', 'marsden'], 'rx-yday');
+var waitStatus = Feedback.todayStatus([morningHart], 'hart', DAY, [yesterdayRx], 'kid-hart');
+assert.strictEqual(waitStatus.waiting, true);
+assert.strictEqual(waitStatus.done, false);
+assert.strictEqual(waitStatus.uploadAllowed, false);
+assert.strictEqual(Feedback.badgeText(false, 'parent', waitStatus), '等待视训师布置');
+assert.strictEqual(Feedback.badgeText(true, 'parent'), '今日作业已完成');
+assert.strictEqual(Feedback.badgeText(true, 'therapist', waitStatus), '完成');
+assert.strictEqual(Feedback.PRACTICE_COPY.waiting, '等待视训师布置');
+['hart', 'pursuit', 'peripheral', 'eye', 'marsden'].forEach(function (kind) {
+  var blocked = Feedback.uploadGate([], 'kid-hart', kind, DAY);
+  assert.strictEqual(blocked.allowed, false, kind);
+  assert.strictEqual(blocked.waiting, true, kind);
+  assert.strictEqual(blocked.message, '等待视训师布置', kind);
+  var blockedOld = Feedback.uploadGate([yesterdayRx], 'kid-hart', kind, DAY);
+  assert.strictEqual(blockedOld.allowed, false, kind);
+  assert.strictEqual(blockedOld.message, '等待视训师布置', kind);
+});
+assert.strictEqual(Feedback.uploadGate(null, 'kid-hart', 'hart', DAY).allowed, false);
+assert.strictEqual(Feedback.uploadGate(null, 'kid-hart', 'hart', DAY).message, '');
+assert.strictEqual(Feedback.parentRxGate({ prescriptions: null }, 'kid-hart', 'peripheral', DAY).message, '');
+assert.strictEqual(Feedback.parentRxGate({}, 'kid-hart', 'hart', DAY).message, '等待视训师布置');
+
+var waitPanel = Feedback.renderPanel({
+  audience: 'parent',
+  childName: '哈特娃',
+  records: [morningHart],
+  now: DAY,
+  showNote: false,
+  prescriptions: [],
+  childId: 'kid-hart'
+});
+assert.ok(waitPanel.indexOf('等待视训师布置') >= 0);
+assert.strictEqual(waitPanel.indexOf('今日作业已完成'), -1);
+assert.ok(waitPanel.indexOf('data-wait="1"') >= 0);
+assert.ok(waitPanel.indexOf('data-upload="0"') >= 0);
+assert.ok(waitPanel.indexOf('data-done="0"') >= 0);
+assert.strictEqual(waitPanel.indexOf('师傅'), -1);
+
+var waitList = Feedback.renderParentRxList([{ id: 'kid-hart', name: '哈特娃' }], [yesterdayRx], DAY);
+assert.ok(waitList.indexOf('等待视训师布置') >= 0);
+assert.ok(waitList.indexOf('data-rx-wait="1"') >= 0);
+assert.strictEqual(waitList.indexOf('去做'), -1);
+assert.strictEqual(waitList.indexOf('师傅'), -1);
+var todayList = Feedback.renderParentRxList([{ id: 'kid-hart', name: '哈特娃' }, { id: 'other-kid', name: '其他' }], [newHartRx], DAY);
+assert.ok(todayList.indexOf('data-rx-today="1"') >= 0);
+assert.ok(todayList.indexOf("viewRx('rx-new-1029')") >= 0);
+assert.ok(todayList.indexOf('去做') >= 0);
+assert.ok(todayList.indexOf('等待视训师布置') >= 0, 'the child without today’s assignment still waits');
+assert.ok(todayList.indexOf('data-child="other-kid"') >= 0);
+var emptyKids = Feedback.renderParentRxList([], [], DAY);
+assert.ok(emptyKids.indexOf('等待视训师布置') >= 0);
+assert.strictEqual(emptyKids.indexOf('去做'), -1);
+
+var plan = Feedback.parentTasks([
+  rxOn(at(2026, 10, 29, 8, 0), 'kid-hart', ['eye', 'hart', 'peripheral'], 'rx-mix')
+], 'kid-hart', DAY);
+assert.strictEqual(plan.waiting, false);
+assert.deepStrictEqual(plan.games, ['hart']);
+assert.deepStrictEqual(plan.offline, ['eye', 'peripheral']);
+assert.strictEqual(Feedback.uploadGate([plan.prescription], 'kid-hart', 'eye', DAY).allowed, true);
+assert.strictEqual(Feedback.uploadGate([plan.prescription], 'kid-hart', 'marsden', DAY).allowed, false);
+assert.strictEqual(Feedback.uploadGate([plan.prescription], 'kid-hart', 'custom', DAY).allowed, true);
+
 var fs = require('fs');
 var page = fs.readFileSync(require('path').join(__dirname, 'cloud.html'), 'utf8');
 ['结束训练', '退出训练', '训练完成', '打卡上传给视训师', '师傅'].forEach(function (s) {
@@ -250,7 +396,8 @@ assert.ok(page.indexOf('pursuitRecordData') >= 0);
 assert.ok(page.indexOf('hartRecordData') >= 0);
 assert.strictEqual(page.indexOf('maximum-scale'), -1);
 assert.strictEqual(page.indexOf('home-split'), -1);
-assert.ok(page.indexOf('>去做<') >= 0);
+assert.ok(fs.readFileSync(require('path').join(__dirname, 'feedback.js'), 'utf8').indexOf('>去做<') >= 0, 'today assignment still offers 去做');
+assert.ok(page.indexOf('renderParentRxList') >= 0);
 assert.ok(page.indexOf('border:1.5px solid #f2a33c') >= 0);
 assert.ok(page.indexOf('家庭辅助训练工具，非医疗器械；不诊断、不替代当面带练与医生；不作效果承诺；不适即停，听从视训师与医生。') >= 0);
 var hang = fs.readFileSync(require('path').join(__dirname, 'index.html'), 'utf8');
@@ -269,6 +416,16 @@ assert.ok(hang.indexOf('MicroMessenger') >= 0, 'hang page missing wechat ua chec
 assert.strictEqual(page.indexOf('maximum-scale'), -1);
 assert.ok(page.indexOf('src="js/util.js"') >= 0, 'cloud missing js/util.js');
 assert.ok(page.indexOf('src="js/auth.js"') >= 0, 'cloud missing js/auth.js');
+assert.ok(page.indexOf('src="feedback.js?v=4"') >= 0, 'cloud feedback cache bump');
+assert.ok(page.indexOf('Feedback.todayTitle') >= 0, 'saveRx title must share todayTitle');
+assert.ok(page.indexOf('Feedback.renderParentRxList') >= 0);
+assert.ok(page.indexOf('Feedback.parentTasks') >= 0);
+assert.ok(page.indexOf("cloudRxGate(pursuit.cid, 'pursuit')") >= 0);
+assert.ok(page.indexOf("cloudRxGate(hart.cid, 'hart')") >= 0);
+assert.ok(page.indexOf("cloudRxGate(rxState && rxState.childId, 'peripheral')") >= 0);
+assert.ok(page.indexOf("cloudRxGate(rxState && rxState.childId, 'eye')") >= 0);
+assert.ok(page.indexOf("cloudRxGate(cid, 'marsden')") >= 0);
+assert.strictEqual(page.indexOf('视训师还没有布置今日作业'), -1);
 var authSrc = fs.readFileSync(require('path').join(__dirname, 'js/auth.js'), 'utf8');
 function sliceFn(src, startMark, endMark) {
   var start = src.indexOf(startMark);
@@ -312,7 +469,7 @@ assert.ok(recordFn.indexOf("'/peripheral/'") >= 0);
 assert.ok(catchTail(recordFn).indexOf('thrownAuthText') >= 0);
 assert.ok(catchTail(recordFn).indexOf('btn.disabled = false') >= 0);
 assert.ok(catchTail(recordFn).indexOf("btn.textContent = '提交回传'") >= 0);
-var inline = page.split('<script src="feedback.js?v=3"></script>')[1].replace(/^\s*<script>/, '').replace(/<\/script>\s*<\/body>\s*<\/html>\s*$/, '');
+var inline = page.split('<script src="feedback.js?v=4"></script>')[1].replace(/^\s*<script>/, '').replace(/<\/script>\s*<\/body>\s*<\/html>\s*$/, '');
 new Function(inline);
 
 if (!global.window) global.window = {};
@@ -335,6 +492,24 @@ var checkinCustom = loadPageFn(customFn, 'checkinCustom');
 var checkInPursuit = loadPageFn(pursuitFn, 'checkInPursuit');
 var checkInHart = loadPageFn(hartFn, 'checkInHart');
 var submitRecord = loadPageFn(recordFn, 'submitRecord');
+global.cloudRxGate = loadPageFn(sliceFn(page, 'function cloudRxGate(', 'function rxProjectsOf'), 'cloudRxGate');
+
+function todayRxFor(childId, keys) {
+  var start = new Date();
+  start.setHours(0, 0, 0, 0);
+  return {
+    id: 'rx-' + childId,
+    child_id: childId,
+    title: Feedback.todayTitle(new Date()),
+    items: JSON.stringify(keys.map(function (k) { return { key: k, title: k, param: '' }; })),
+    created_at: start.toISOString()
+  };
+}
+var rxFixture = [
+  todayRxFor('c1', ['pursuit', 'hart']),
+  todayRxFor('child-1', ['pursuit', 'hart']),
+  todayRxFor('child-9', ['peripheral', 'eye', 'marsden'])
+];
 
 function chainSb(handlers) {
   var ops = [];
@@ -382,6 +557,7 @@ function practiceBtn(id) {
 }
 
 (async function () {
+  global.state = { prescriptions: rxFixture };
   var pursuitBtn = practiceBtn('p-checkin');
   var pursuitMsgs = [];
   var pursuitToasts = [];
@@ -425,7 +601,7 @@ function practiceBtn(id) {
   assert.strictEqual(global.practiceGate.pending, true);
 
   global.customPending = [{ file: { name: 'a.png', type: 'image/png' }, url: 'blob:a' }];
-  global.state = { customId: 'p1', childId: 'child-1' };
+  global.state = { customId: 'p1', childId: 'child-1', prescriptions: rxFixture };
   var customBtn = { disabled: false, textContent: '打卡提交给视训师' };
   var customToasts = [];
   global.$ = function (q) { return q === 'custom-checkin' ? customBtn : null; };
@@ -524,6 +700,41 @@ function practiceBtn(id) {
   assert.strictEqual(recordBtn.textContent, '提交回传');
   assert.ok(recordStatus.indexOf('网络连接失败，请检查网络后重试') >= 0);
   assert.strictEqual(global.sb.ops.some(function (op) { return op.op === 'upload'; }), false);
+
+  global.state = { prescriptions: [], childId: 'c1' };
+  var blockedPursuitBtn = practiceBtn('p-checkin');
+  var blockedMsgs = [];
+  var blockedToasts = [];
+  global.showPracticeMsg = function (text) { blockedMsgs.push(text); };
+  global.toast = function (text, isError) { blockedToasts.push({ text: text, isError: !!isError }); };
+  global.showPracticeDone = function () { throw new Error('waiting pursuit must not finish'); };
+  global.pursuit = { preview: false, cid: 'c1', speed: 3, amp: 80, traj: 'h', elapsed: 12 };
+  global.sb = chainSb({});
+  await checkInPursuit();
+  assert.strictEqual(global.sb.ops.length, 0, 'no today prescription blocks pursuit check-in');
+  assert.strictEqual(blockedPursuitBtn.disabled, false);
+  assert.ok(blockedMsgs[0].indexOf('等待视训师布置') >= 0);
+  assert.ok(blockedToasts[0].text.indexOf('等待视训师布置') >= 0);
+  assert.strictEqual(blockedToasts[0].isError, true);
+
+  global.state = { prescriptions: [], childId: 'child-9' };
+  var blockedRecordBtn = { disabled: false, textContent: '提交回传' };
+  var blockedStatus = '';
+  global.$ = function (q) {
+    if (q === 'submit-btn') return blockedRecordBtn;
+    if (q === 'hit') return { value: '1' };
+    if (q === 'miss') return { value: '0' };
+    if (q === 'media-input') return { files: [{ name: 'shot.jpg', type: 'image/jpeg' }] };
+    return null;
+  };
+  global.setStatus = function (text) { blockedStatus = text; };
+  global.home = function () { global.home.calls = (global.home.calls || 0) + 1; };
+  global.sb = chainSb({});
+  await submitRecord();
+  assert.strictEqual(global.sb.ops.length, 0, 'no today prescription blocks 回传 submit');
+  assert.strictEqual(blockedRecordBtn.disabled, false);
+  assert.strictEqual(blockedRecordBtn.textContent, '提交回传');
+  assert.ok(blockedStatus.indexOf('等待视训师布置') >= 0);
 
   console.log('feedback.test.js ok');
 })().catch(function (err) {
