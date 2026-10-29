@@ -456,15 +456,18 @@
 </div>
 
 <script src="supabase.js"></script>
+<script src="js/util.js"></script>
+<script src="js/auth.js"></script>
 <script src="feedback.js?v=3"></script>
 <script>
   var SUPABASE_URL = 'https://ucjgcybsvrkfgkszcygq.supabase.co';
   var ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjamdjeWJzdnJrZmdrc3pjeWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDY5ODIsImV4cCI6MjEwNzQ4Mjk4Mn0.tMtklRCxDjtO5Lb5cMjqg_LeB5cUxfVOZxxwNRO0aDw';
 
+  // 登录域桥接：auth.js 通过 window.sb / window.state 读写
   var sb = window.supabase.createClient(SUPABASE_URL, ANON_KEY);
-
-  var $ = function (id) { return document.getElementById(id); };
+  window.sb = sb;
   var state = { user: null, profile: null, familyId: null, childId: null, childName: null };
+  window.state = state;
 
   // 家长端文案（W3 CTA / M3 今日任务）。视训师端对内仍用「布置练习」，家长端不出现「处方」。
   var TASK_MAIN = '今日作业约 15 分钟，可一次做完，也可拆成两次。请按视训师布置的练习完成；练习记录（完成度、有效时长、正确率/达标率）会回传给视训师。如感不适，请立即停止，并联系视训师或医生。';
@@ -488,7 +491,7 @@
     p.hidden = true;
   }
 
-  // ---------- 工具 ----------
+  // ---------- 工具（$ / errText / thrownAuthText 已在 js/util.js、js/auth.js） ----------
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -504,23 +507,6 @@
       var name = (items[i].getAttribute('data-name') || '').toLowerCase();
       items[i].style.display = (!q || name.indexOf(q) >= 0) ? '' : 'none';
     }
-  }
-  // 把 Supabase 英文错误映射成中文可执行文案
-  function errText(msg) {
-    msg = String(msg || '');
-    if (/invalid login credentials/i.test(msg)) return '邮箱或密码错误';
-    if (/already registered/i.test(msg)) return '该邮箱已注册，请直接登录';
-    if (/email not confirmed/i.test(msg)) return '邮箱未确认，请先到邮箱点确认链接';
-    if (/duplicate key/i.test(msg)) return '数据重复，请勿重复提交';
-    if (/row-level security|policy/i.test(msg)) return '没有权限操作';
-    if (/jwt expired|invalid jwt|token expired/i.test(msg)) return '登录已过期，请重新登录';
-    if (/failed to fetch|network/i.test(msg)) return '网络连接失败，请检查网络后重试';
-    if (/rate limit/i.test(msg)) return '操作太频繁，请稍后再试';
-    return msg;
-  }
-  function thrownAuthText(e) {
-    var msg = (e && e.message) ? e.message : '';
-    return errText(msg) || '网络连接失败，请检查网络后重试';
   }
   function roleText(r) { return r === 'therapist' ? '视训师' : '家长'; }
   function toggleOrig(btn) {
@@ -628,72 +614,7 @@
     });
   }
 
-  // ---------- 登录 ----------
-  function showLogin() { $('login-view').style.display = 'block'; $('main-view').style.display = 'none'; setSignupRole('parent'); }
-  function showMain() { $('login-view').style.display = 'none'; $('main-view').style.display = 'block'; }
-  function showMsg(text, ok) {
-    var m = $('msg'); m.textContent = text; m.className = 'msg ' + (ok ? 'ok' : 'err');
-  }
-
-  var signupRole = 'parent';
-  function setSignupRole(r) {
-    signupRole = r;
-    $('role-parent-btn').classList.toggle('active', r === 'parent');
-    $('role-therapist-btn').classList.toggle('active', r === 'therapist');
-    $('role-parent-btn').setAttribute('aria-pressed', r === 'parent' ? 'true' : 'false');
-    $('role-therapist-btn').setAttribute('aria-pressed', r === 'therapist' ? 'true' : 'false');
-    $('code-field').style.display = r === 'therapist' ? 'block' : 'none';
-  }
-  async function signUp() {
-    var email = $('email').value.trim(), password = $('password').value;
-    if (!email || !password) { showMsg('请填写邮箱和密码'); return; }
-    var code = $('therapist-code').value.trim();
-    if (signupRole === 'therapist' && !code) { showMsg('视训师需要填写授权码'); return; }
-    showMsg('正在注册……');
-    try {
-      var res = await sb.auth.signUp({ email: email, password: password });
-      if (res.error) { showMsg('注册失败：' + errText(res.error.message)); return; }
-      // 视训师：注册后立刻用授权码升级身份
-      if (signupRole === 'therapist') {
-        if (!res.data.session) { showMsg('注册成功，但未自动登录。请点「登录」后，在首页输入授权码升级', true); return; }
-        var r = await sb.rpc('register_therapist', { p_code: code });
-        if (r.error) { showMsg('升级失败：' + errText(r.error.message), false); try { await sb.auth.signOut(); } catch (e2) {} showLogin(); return; }
-        if (r.data === false) { showMsg('授权码错误，账号已注册为「家长」。请用此邮箱登录，在首页点「我是视训师」重试', false); try { await sb.auth.signOut(); } catch (e2) {} showLogin(); return; }
-        showMsg('注册成功，已成为视训师', true); await afterLogin(res.data.user);
-        return;
-      }
-      if (res.data.session) { showMsg('注册成功，已自动登录', true); await afterLogin(res.data.user); }
-      else { showMsg('注册成功！请点「登录」进入', true); }
-    } catch (e) {
-      showMsg('注册失败：' + thrownAuthText(e));
-    }
-  }
-  async function signIn() {
-    var email = $('email').value.trim(), password = $('password').value;
-    if (!email || !password) { showMsg('请填写邮箱和密码'); return; }
-    showMsg('正在登录……');
-    try {
-      var res = await sb.auth.signInWithPassword({ email: email, password: password });
-      if (res.error) { showMsg('登录失败：' + errText(res.error.message)); return; }
-      await afterLogin(res.data.user);
-    } catch (e) {
-      showMsg('登录失败：' + thrownAuthText(e));
-    }
-  }
-  async function signOut() { await sb.auth.signOut(); state.user = null; state.profile = null; showLogin(); }
-
-  // ---------- 登录后：读档案 + 分流 ----------
-  async function afterLogin(user) {
-    state.user = user;
-    await loadProfile();
-    showMain();
-    home();
-  }
-  async function loadProfile() {
-    var res = await sb.from('profiles').select('role, name, family_id').eq('id', state.user.id).single();
-    if (res.error || !res.data) { state.profile = { role: 'parent', name: '', family_id: null }; return; }
-    state.profile = res.data;
-  }
+  // ---------- 登录逻辑已迁至 js/auth.js（window.signIn / signUp / …） ----------
   function renderTopbar() {
     $('role-tag').textContent = roleText(state.profile.role);
     $('who-name').textContent = state.profile.name ? ('· ' + state.profile.name) : '';
@@ -705,6 +626,7 @@
     if (state.profile.role === 'therapist') renderTherapistHome();
     else renderParentHome();
   }
+  window.home = home; // auth.js afterLogin 分流入口
 
   // ---------- 视训师端 ----------
   // 线上视觉训练板块（孩子档案里，和处方/自定义训练平级；只视训师可见，靠处方下发）

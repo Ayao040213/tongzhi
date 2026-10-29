@@ -267,16 +267,19 @@ assert.ok(page.indexOf('MicroMessenger') >= 0, 'cloud missing wechat ua check');
 assert.ok(hang.indexOf(WX_HINT) >= 0, 'hang page missing wechat hint');
 assert.ok(hang.indexOf('MicroMessenger') >= 0, 'hang page missing wechat ua check');
 assert.strictEqual(page.indexOf('maximum-scale'), -1);
+assert.ok(page.indexOf('src="js/util.js"') >= 0, 'cloud missing js/util.js');
+assert.ok(page.indexOf('src="js/auth.js"') >= 0, 'cloud missing js/auth.js');
+var authSrc = fs.readFileSync(require('path').join(__dirname, 'js/auth.js'), 'utf8');
 function sliceFn(src, startMark, endMark) {
   var start = src.indexOf(startMark);
   var end = src.indexOf(endMark, start + startMark.length);
   assert.ok(start >= 0 && end > start, startMark);
   return src.slice(start, end);
 }
-assert.ok(sliceFn(page, 'async function signIn()', 'async function signOut()').indexOf('catch (e)') >= 0);
-assert.ok(sliceFn(page, 'async function signUp()', 'async function signIn()').indexOf('catch (e)') >= 0);
+assert.ok(sliceFn(authSrc, 'async function signIn()', 'async function signOut()').indexOf('catch (e)') >= 0);
+assert.ok(sliceFn(authSrc, 'async function signUp()', 'async function signIn()').indexOf('catch (e)') >= 0);
 assert.ok(sliceFn(page, 'async function init()', '})();').indexOf('getSession') >= 0);
 assert.ok(sliceFn(page, 'async function init()', '})();').indexOf('catch (e)') >= 0);
-assert.ok(sliceFn(page, 'async function signIn()', 'async function signOut()').indexOf('thrownAuthText') >= 0);
+assert.ok(sliceFn(authSrc, 'async function signIn()', 'async function signOut()').indexOf('thrownAuthText') >= 0);
 
 console.log('feedback.test.js ok');
