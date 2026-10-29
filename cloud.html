@@ -1288,20 +1288,26 @@
     if (!customPending.length || !state.customId) return;
     var projId = state.customId;
     var cname = '';
-    var pr = await sb.from('custom_projects').select('title').eq('id', projId).single();
-    if (pr.data) cname = pr.data.title;
     var btn = $('custom-checkin');
     btn.disabled = true; btn.textContent = '上传中…';
-    var paths = [];
-    for (var i = 0; i < customPending.length; i++) {
-      var file = await compressImage(customPending[i].file, 1280, 0.7);
-      var path = state.childId + '/progress/' + Date.now() + '_' + i + '.jpg';
-      var up = await sb.storage.from('media').upload(path, file, { contentType: 'image/jpeg' });
-      if (up.error) { toast('上传失败：' + errText(up.error.message), true); btn.disabled = false; btn.textContent = '打卡提交给视训师'; return; }
-      paths.push(path);
+    try {
+      var pr = await sb.from('custom_projects').select('title').eq('id', projId).single();
+      if (pr.data) cname = pr.data.title;
+      var paths = [];
+      for (var i = 0; i < customPending.length; i++) {
+        var file = await compressImage(customPending[i].file, 1280, 0.7);
+        var path = state.childId + '/progress/' + Date.now() + '_' + i + '.jpg';
+        var up = await sb.storage.from('media').upload(path, file, { contentType: 'image/jpeg' });
+        if (up.error) { toast('上传失败：' + errText(up.error.message), true); btn.disabled = false; btn.textContent = '打卡提交给视训师'; return; }
+        paths.push(path);
+      }
+      var ins = await sb.from('records').insert({ child_id: state.childId, type: 'custom', data: { custom_id: projId, custom_title: cname }, media: paths });
+      if (ins.error) { toast('提交失败：' + errText(ins.error.message), true); btn.disabled = false; btn.textContent = '打卡提交给视训师'; return; }
+    } catch (e) {
+      toast('打卡失败：' + thrownAuthText(e), true);
+      btn.disabled = false; btn.textContent = '打卡提交给视训师';
+      return;
     }
-    var ins = await sb.from('records').insert({ child_id: state.childId, type: 'custom', data: { custom_id: projId, custom_title: cname }, media: paths });
-    if (ins.error) { toast('提交失败：' + errText(ins.error.message), true); btn.disabled = false; btn.textContent = '打卡提交给视训师'; return; }
     toast('回传成功，视训师能看到啦！');
     for (var j = 0; j < customPending.length; j++) URL.revokeObjectURL(customPending[j].url);
     customPending = [];
@@ -1749,15 +1755,23 @@
     var data = window.Feedback
       ? Feedback.pursuitRecordData(pursuit)
       : { speed: pursuit.speed, amp: pursuit.amp, trajectory: pursuit.traj, actual: Math.max(0, Math.round(pursuit.elapsed || 0)) };
-    var res = await sb.from('records').insert({
-      child_id: pursuit.cid,
-      type: 'pursuit',
-      data: data
-    });
-    if (res.error) {
-      var err = (copy.fail || '这次还没记上。') + ' ' + errText(res.error.message);
-      showPracticeMsg(err);
-      toast('打卡失败：' + errText(res.error.message), true);
+    try {
+      var res = await sb.from('records').insert({
+        child_id: pursuit.cid,
+        type: 'pursuit',
+        data: data
+      });
+      if (res.error) {
+        var err = (copy.fail || '这次还没记上。') + ' ' + errText(res.error.message);
+        showPracticeMsg(err);
+        toast('打卡失败：' + errText(res.error.message), true);
+        if (btn) { btn.disabled = false; btn.textContent = copy.checkin || '打卡，记为今日完成'; }
+        return;
+      }
+    } catch (e) {
+      var thrown = (copy.fail || '这次还没记上。') + ' ' + thrownAuthText(e);
+      showPracticeMsg(thrown);
+      toast('打卡失败：' + thrownAuthText(e), true);
       if (btn) { btn.disabled = false; btn.textContent = copy.checkin || '打卡，记为今日完成'; }
       return;
     }
@@ -1965,15 +1979,23 @@
     var data = window.Feedback
       ? Feedback.hartRecordData(hart)
       : { charset: hart.charset, per_dir: hart.perDir, correct: hart.correct || 0, wrong: hart.wrong || 0, actual: Math.max(0, Math.round(hart.elapsed || 0)) };
-    var res = await sb.from('records').insert({
-      child_id: hart.cid,
-      type: 'hart',
-      data: data
-    });
-    if (res.error) {
-      var err = (copy.fail || '这次还没记上。') + ' ' + errText(res.error.message);
-      showPracticeMsg(err);
-      toast('打卡失败：' + errText(res.error.message), true);
+    try {
+      var res = await sb.from('records').insert({
+        child_id: hart.cid,
+        type: 'hart',
+        data: data
+      });
+      if (res.error) {
+        var err = (copy.fail || '这次还没记上。') + ' ' + errText(res.error.message);
+        showPracticeMsg(err);
+        toast('打卡失败：' + errText(res.error.message), true);
+        if (btn) { btn.disabled = false; btn.textContent = copy.checkin || '打卡，记为今日完成'; }
+        return;
+      }
+    } catch (e) {
+      var thrown = (copy.fail || '这次还没记上。') + ' ' + thrownAuthText(e);
+      showPracticeMsg(thrown);
+      toast('打卡失败：' + thrownAuthText(e), true);
       if (btn) { btn.disabled = false; btn.textContent = copy.checkin || '打卡，记为今日完成'; }
       return;
     }
@@ -2376,48 +2398,44 @@
       '<button class="btn btn-ghost" onclick="home()">返回</button>';
   }
   async function submitRecord() {
-    var hit = parseInt($('hit').value) || 0, miss = parseInt($('miss').value) || 0;
-    var files = $('media-input').files;
     var btn = $('submit-btn');
     btn.disabled = true;
     setStatus('正在提交……');
-
-    // 1. 先建回传记录，拿到记录 id
-    var res = await sb.from('records').insert({
-      child_id: state.childId, type: 'peripheral', data: { hit: hit, miss: miss }
-    }).select();
-    if (res.error) { setStatus('提交失败：' + errText(res.error.message), true); btn.disabled = false; return; }
-    var recId = res.data[0].id;
-
-    // 2. 上传照片/视频（图片先压缩，减小体积，上传更快）
-    var media = [];
-    for (var i = 0; i < files.length; i++) {
-      var f = files[i];
-      var ext = (f.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (!ext || ext.length > 5) ext = 'bin';
-      if (f.type.indexOf('image/') === 0) {
-        setStatus('正在压缩照片 ' + (i + 1) + '/' + files.length + ' …');
-        f = await compressImage(f, 1280, 0.7);
-        ext = 'jpg';
-      } else if (f.type.indexOf('video/') === 0) {
-        setStatus('正在压缩视频 ' + (i + 1) + '/' + files.length + ' …');
-        var cv = await compressVideo(f, 640, 1000000);
-        if (cv !== f) { f = cv; ext = (cv.type === 'video/webm') ? 'webm' : 'mp4'; }
+    try {
+      var hit = parseInt($('hit').value) || 0, miss = parseInt($('miss').value) || 0;
+      var files = $('media-input').files;
+      // 先上传媒体，再建记录并带上路径（上传失败不留下无媒体的空记录）
+      var media = [];
+      for (var i = 0; i < files.length; i++) {
+        var f = files[i];
+        var ext = (f.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (!ext || ext.length > 5) ext = 'bin';
+        if (f.type.indexOf('image/') === 0) {
+          setStatus('正在压缩照片 ' + (i + 1) + '/' + files.length + ' …');
+          f = await compressImage(f, 1280, 0.7);
+          ext = 'jpg';
+        } else if (f.type.indexOf('video/') === 0) {
+          setStatus('正在压缩视频 ' + (i + 1) + '/' + files.length + ' …');
+          var cv = await compressVideo(f, 640, 1000000);
+          if (cv !== f) { f = cv; ext = (cv.type === 'video/webm') ? 'webm' : 'mp4'; }
+        }
+        setStatus('正在上传 ' + (i + 1) + '/' + files.length + ' …');
+        var path = state.childId + '/peripheral/' + Date.now() + '_' + (i + 1) + '.' + ext;
+        var up = await sb.storage.from('media').upload(path, f);
+        if (up.error) throw new Error('上传失败：' + errText(up.error.message));
+        media.push(path);
       }
-      setStatus('正在上传 ' + (i + 1) + '/' + files.length + ' …');
-      var path = state.childId + '/' + recId + '/' + Date.now() + '_' + (i + 1) + '.' + ext;
-      var up = await sb.storage.from('media').upload(path, f);
-      if (up.error) { setStatus('上传失败：' + errText(up.error.message), true); btn.disabled = false; return; }
-      media.push(path);
+      var row = { child_id: state.childId, type: 'peripheral', data: { hit: hit, miss: miss } };
+      if (media.length) row.media = media;
+      var res = await sb.from('records').insert(row);
+      if (res.error) throw new Error('提交失败：' + errText(res.error.message));
+      setStatus('回传成功！视训师那边已经能看到了');
+      setTimeout(function () { home(); }, 600);
+    } catch (e) {
+      setStatus(thrownAuthText(e), true);
+      btn.disabled = false;
+      btn.textContent = '提交回传';
     }
-
-    // 3. 把文件路径存回这条记录
-    if (media.length) {
-      var upd = await sb.from('records').update({ media: media }).eq('id', recId);
-      if (upd.error) { setStatus('保存失败：' + errText(upd.error.message), true); btn.disabled = false; return; }
-    }
-    setStatus('回传成功！视训师那边已经能看到了');
-    setTimeout(function () { home(); }, 600);
   }
 
   // ---------- 眼位照（拍满 9 张 → 拼图 → 上传）----------
