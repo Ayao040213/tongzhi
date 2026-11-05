@@ -85,12 +85,12 @@ body {
   z-index: 5;
 }
 
-/* 843,275 → 1269,426 */
+/* 843,271 → 1269,430 */
 .title {
   left: 843px;
-  top: 275px;
+  top: 271px;
   width: 426px;
-  height: 151px;
+  height: 159px;
   margin: 0;
   z-index: 8;
 }
