@@ -1,0 +1,261 @@
+/* 春芽登录一屏
+   Artboard 1483×927, origin top-left. Boxes are layout.json bboxes. */
+
+:root {
+  --bg: #ffffff;
+  --brand: #97c05e;
+  --brand-deep: #688820;
+  --subtitle: #633019;
+  --highlight: #b0cc7d;
+  --art-w: 1483;
+  --art-h: 927;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--subtitle);
+}
+
+body {
+  font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
+    "WenQuanYi Micro Hei", sans-serif;
+}
+
+.fit {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--bg);
+  container-type: size;
+}
+
+.stage {
+  position: relative;
+  flex: none;
+  width: 1483px;
+  height: 927px;
+  background: var(--bg);
+  transform-origin: center center;
+  transform: scale(
+    min(1, calc(100cqi / 1483px), calc(100cqb / 927px))
+  );
+}
+
+.logo,
+.mascot,
+.title,
+.subtitle,
+.btn-start {
+  position: absolute;
+}
+
+.logo,
+.mascot,
+.title img {
+  display: block;
+  user-select: none;
+}
+
+/* 74,51 → 323,153 */
+.logo {
+  left: 74px;
+  top: 51px;
+  width: 249px;
+  height: 102px;
+  z-index: 10;
+}
+
+/* 191,264 → 524,619 */
+.mascot {
+  left: 191px;
+  top: 264px;
+  width: 333px;
+  height: 355px;
+  z-index: 5;
+}
+
+/* 843,275 → 1269,426 */
+.title {
+  left: 843px;
+  top: 275px;
+  width: 426px;
+  height: 151px;
+  margin: 0;
+  z-index: 8;
+}
+
+.title img {
+  width: 100%;
+  height: 100%;
+}
+
+/* 911,416 → 1214,470 */
+.subtitle {
+  left: 911px;
+  top: 416px;
+  width: 303px;
+  height: 54px;
+  margin: 0;
+  z-index: 9;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 12px 0 0 10px;
+  color: #633019;
+  font-family: "Yuanti SC", "YouYuan", "PingFang SC", "Hiragino Maru Gothic ProN",
+    "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "WenQuanYi Micro Hei",
+    sans-serif;
+  font-weight: 700;
+  font-size: 35px;
+  letter-spacing: 0;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* 846,521 → 1257,605 */
+.btn-start {
+  left: 846px;
+  top: 521px;
+  width: 411px;
+  height: 84px;
+  z-index: 9;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: #97c05e;
+  color: #ffffff;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 34px;
+  letter-spacing: 3px;
+  padding-left: 3px;
+  line-height: 1;
+  cursor: pointer;
+  overflow: hidden;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Left interior highlight from the CTA reference cut. */
+.btn-start::before,
+.btn-start::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  background: var(--highlight);
+}
+
+.btn-start::before {
+  left: 12px;
+  top: 10px;
+  width: 42px;
+  height: 34px;
+  border-radius: 50%;
+  filter: blur(1.4px);
+  opacity: 0.95;
+}
+
+.btn-start::after {
+  left: 34px;
+  top: 9px;
+  width: 28px;
+  height: 18px;
+  border-radius: 50%;
+  filter: blur(1.1px);
+  opacity: 0.9;
+}
+
+.btn-start:hover {
+  background: #9fc866;
+}
+
+.btn-start:active {
+  background: #8ab356;
+}
+
+.btn-start:focus-visible {
+  outline: 3px solid var(--brand-deep);
+  outline-offset: 4px;
+}
+
+@media (max-width: 720px) {
+  .fit {
+    display: block;
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: auto;
+  }
+
+  .stage {
+    transform: none;
+    width: auto;
+    max-width: 440px;
+    height: auto;
+    margin: 0 auto;
+    padding: 28px 20px 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .logo,
+  .mascot,
+  .title,
+  .subtitle {
+    position: static;
+    height: auto;
+  }
+
+  .btn-start {
+    position: relative;
+    left: auto;
+    top: auto;
+  }
+
+  .logo {
+    width: 168px;
+    align-self: flex-start;
+  }
+
+  .mascot {
+    width: min(300px, 86%);
+    margin-top: 28px;
+  }
+
+  .title {
+    width: min(340px, 100%);
+    margin-top: 12px;
+  }
+
+  .title img {
+    width: 100%;
+    height: auto;
+  }
+
+  .subtitle {
+    width: auto;
+    margin: 10px 0 20px;
+    font-size: 18px;
+    letter-spacing: 0.08em;
+  }
+
+  .btn-start {
+    width: 100%;
+    max-width: 411px;
+    height: 64px;
+    font-size: 22px;
+  }
+}
