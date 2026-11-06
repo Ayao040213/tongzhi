@@ -1,14 +1,37 @@
 /* 春芽登录一屏
-   Artboard 1483×927, origin top-left. Boxes are layout.json bboxes. */
+   Artboard 1483×927, origin top-left. Boxes are layout.json bboxes.
+   已对照品牌规范 v1.4 §色板 / §四绿 / §按钮造形。 */
+
+@font-face {
+  font-family: "GenSenRounded2";
+  src: url("fonts/GenSenRounded2-R.ttc#GenSenRounded2TW-R") format("collection");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "GenSenRounded2";
+  src: url("fonts/GenSenRounded2-B.ttc#GenSenRounded2TW-B") format("collection");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
-  --bg: #ffffff;
-  --brand: #97c05e;
-  --brand-deep: #688820;
-  --subtitle: #633019;
-  --highlight: #b0cc7d;
+  --bg: #F7F4EC;
+  --brand: #98C058;
+  --brand-pressed: #88A858;
+  --brand-disabled: #D5E3B8;
+  --brand-ghost: #688828;
+  --text-title: #5C5348;
+  --text-body: #6E655A;
+  --text-muted: #9A9184;
   --art-w: 1483;
   --art-h: 927;
+  --font-ui: "GenSenRounded2", "源泉圆体", "Yuanti SC", "YouYuan", "PingFang SC",
+    "Hiragino Maru Gothic ProN", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans SC", "WenQuanYi Micro Hei", sans-serif;
 }
 
 * {
@@ -20,12 +43,11 @@ body {
   margin: 0;
   height: 100%;
   background: var(--bg);
-  color: var(--subtitle);
+  color: var(--text-body);
 }
 
 body {
-  font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
-    "WenQuanYi Micro Hei", sans-serif;
+  font-family: var(--font-ui);
 }
 
 .fit {
@@ -112,11 +134,9 @@ body {
   align-items: flex-start;
   justify-content: flex-start;
   padding: 12px 0 0 10px;
-  color: #633019;
-  font-family: "Yuanti SC", "YouYuan", "PingFang SC", "Hiragino Maru Gothic ProN",
-    "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "WenQuanYi Micro Hei",
-    sans-serif;
-  font-weight: 700;
+  color: var(--text-title);
+  font-family: var(--font-ui);
+  font-weight: 400;
   font-size: 35px;
   letter-spacing: 0;
   line-height: 1;
@@ -134,60 +154,39 @@ body {
   padding: 0;
   border: none;
   border-radius: 999px;
-  background: #97c05e;
+  background: var(--brand);
   color: #ffffff;
-  font-family: inherit;
+  box-shadow: 0 4px 0 var(--brand-pressed);
+  font-family: var(--font-ui);
   font-weight: 700;
   font-size: 34px;
   letter-spacing: 3px;
   padding-left: 3px;
   line-height: 1;
   cursor: pointer;
-  overflow: hidden;
   -webkit-appearance: none;
   appearance: none;
 }
 
-/* Left interior highlight from the CTA reference cut. */
-.btn-start::before,
-.btn-start::after {
-  content: "";
-  position: absolute;
-  pointer-events: none;
-  background: var(--highlight);
-}
-
-.btn-start::before {
-  left: 12px;
-  top: 10px;
-  width: 42px;
-  height: 34px;
-  border-radius: 50%;
-  filter: blur(1.4px);
-  opacity: 0.95;
-}
-
-.btn-start::after {
-  left: 34px;
-  top: 9px;
-  width: 28px;
-  height: 18px;
-  border-radius: 50%;
-  filter: blur(1.1px);
-  opacity: 0.9;
-}
-
 .btn-start:hover {
-  background: #9fc866;
+  background: var(--brand);
 }
 
 .btn-start:active {
-  background: #8ab356;
+  background: var(--brand-pressed);
+  box-shadow: 0 2px 0 var(--brand-pressed);
+  transform: translateY(2px);
 }
 
 .btn-start:focus-visible {
-  outline: 3px solid var(--brand-deep);
+  outline: 3px solid var(--brand-ghost);
   outline-offset: 4px;
+}
+
+.btn-start:disabled {
+  background: var(--brand-disabled);
+  box-shadow: none;
+  cursor: not-allowed;
 }
 
 @media (max-width: 720px) {
