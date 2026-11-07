@@ -44,24 +44,6 @@
             >
           </div>
 
-          <div class="field role-field">
-            <span class="role-label" id="role-label">注册身份</span>
-            <div class="role-tabs" role="group" aria-labelledby="role-label">
-              <button type="button" class="role-tab active" id="role-parent-btn" aria-pressed="true">家长</button>
-              <button type="button" class="role-tab" id="role-therapist-btn" aria-pressed="false">视训师</button>
-            </div>
-          </div>
-
-          <div class="field" id="code-field" style="display:none;">
-            <label for="therapist-code">视训师授权码</label>
-            <input
-              id="therapist-code"
-              name="therapist-code"
-              type="password"
-              autocomplete="off"
-            >
-          </div>
-
           <button class="btn-login" id="login-btn" type="button">登录</button>
           <button class="btn-register" id="signup-btn" type="button">注册</button>
           <div class="msg" id="msg" role="status" aria-live="polite"></div>
@@ -116,8 +98,6 @@
   });
   document.getElementById('login-btn').onclick = signIn;
   document.getElementById('signup-btn').onclick = signUp;
-  document.getElementById('role-parent-btn').onclick = function () { setSignupRole('parent'); };
-  document.getElementById('role-therapist-btn').onclick = function () { setSignupRole('therapist'); };
   document.getElementById('logout-btn').onclick = async function () {
     await signOut();
     var m = document.getElementById('msg');

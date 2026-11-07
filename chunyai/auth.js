@@ -2,7 +2,6 @@
    适配：显隐用清空 inline display，让 login-form.css 的 flex 列继续居中；根目录 cloud 仍用 display:block。 */
 (function (w) {
   var T = (w.Tongzhi = w.Tongzhi || {});
-  var signupRole = 'parent';
 
   function $(id) {
     return (w.$ || document.getElementById.bind(document))(id);
@@ -30,7 +29,6 @@
   function showLogin() {
     $('login-view').style.display = '';
     $('main-view').style.display = 'none';
-    setSignupRole('parent');
   }
 
   function showMain() {
@@ -44,34 +42,15 @@
     m.className = 'msg ' + (ok ? 'ok' : 'err');
   }
 
-  function setSignupRole(r) {
-    signupRole = r;
-    $('role-parent-btn').classList.toggle('active', r === 'parent');
-    $('role-therapist-btn').classList.toggle('active', r === 'therapist');
-    $('role-parent-btn').setAttribute('aria-pressed', r === 'parent' ? 'true' : 'false');
-    $('role-therapist-btn').setAttribute('aria-pressed', r === 'therapist' ? 'true' : 'false');
-    $('code-field').style.display = r === 'therapist' ? 'block' : 'none';
-  }
-
   async function signUp() {
     var sb = w.sb;
     var email = $('email').value.trim(), password = $('password').value;
     if (!email || !password) { showMsg('请填写邮箱和密码'); return; }
-    var code = $('therapist-code').value.trim();
-    if (signupRole === 'therapist' && !code) { showMsg('视训师需要填写授权码'); return; }
     showMsg('正在注册……');
     try {
       var res = await sb.auth.signUp({ email: email, password: password });
       if (res.error) { showMsg('注册失败：' + errText(res.error.message)); return; }
-      // 视训师：注册后立刻用授权码升级身份
-      if (signupRole === 'therapist') {
-        if (!res.data.session) { showMsg('注册成功，但未自动登录。请点「登录」后，在首页输入授权码升级', true); return; }
-        var r = await sb.rpc('register_therapist', { p_code: code });
-        if (r.error) { showMsg('升级失败：' + errText(r.error.message), false); try { await sb.auth.signOut(); } catch (e2) {} showLogin(); return; }
-        if (r.data === false) { showMsg('授权码错误，账号已注册为「家长」。请用此邮箱登录，在首页点「我是视训师」重试', false); try { await sb.auth.signOut(); } catch (e2) {} showLogin(); return; }
-        showMsg('注册成功，已成为视训师', true); await afterLogin(res.data.user);
-        return;
-      }
+      // 注册一律按家长。授权码升级（register_therapist）由老板后续再加，此处不调用。
       if (res.data.session) { showMsg('注册成功，已自动登录', true); await afterLogin(res.data.user); }
       else { showMsg('注册成功！请点「登录」进入', true); }
     } catch (e) {
@@ -119,7 +98,6 @@
   T.showLogin = showLogin;
   T.showMain = showMain;
   T.showMsg = showMsg;
-  T.setSignupRole = setSignupRole;
   T.signUp = signUp;
   T.signIn = signIn;
   T.signOut = signOut;
@@ -132,7 +110,6 @@
   w.showLogin = showLogin;
   w.showMain = showMain;
   w.showMsg = showMsg;
-  w.setSignupRole = setSignupRole;
   w.signUp = signUp;
   w.signIn = signIn;
   w.signOut = signOut;
