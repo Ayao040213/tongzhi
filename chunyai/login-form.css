@@ -39,6 +39,7 @@
   --text-body: #6E655A;
   --text-muted: #9A9184;
   --text-disabled: #C4BDB2;
+  --warn: #C45C3A;
   --font-ui: "GenSenRounded2", "源泉圆体", "Yuanti SC", "YouYuan", "PingFang SC",
     "Hiragino Maru Gothic ProN", "Hiragino Sans GB", "Microsoft YaHei",
     "Noto Sans SC", sans-serif;
@@ -140,12 +141,24 @@ body {
   pointer-events: none;
 }
 
+/* 登录表单与登录后占位页共用这一列；显隐由 auth.js 清掉 inline display */
+#login-view,
+#main-view {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+}
+
 .form-wrap {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  justify-content: safe center;
+  padding-top: 64px;
   padding-bottom: 6vh;
 }
 
@@ -226,6 +239,130 @@ body {
   caret-color: var(--text-title);
   border-color: var(--brand-ghost);
   box-shadow: 0 0 0 1000px var(--input-bg) inset, 0 0 0 3px rgba(104, 136, 40, 0.12);
+}
+
+.password-wrap {
+  position: relative;
+}
+
+.password-wrap input {
+  padding-right: 52px;
+}
+
+.peek-btn {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transform: translateY(-50%);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.peek-btn svg {
+  display: block;
+}
+
+@media (hover: hover) {
+  .peek-btn:hover {
+    background: var(--bg-hover);
+    color: var(--brand-ghost);
+  }
+}
+
+.peek-btn:active,
+.peek-btn[aria-pressed="true"] {
+  background: var(--bg-hover);
+  color: var(--brand-ghost);
+}
+
+.peek-btn:focus-visible {
+  outline: 3px solid var(--brand-ghost);
+  outline-offset: 2px;
+}
+
+.msg {
+  min-height: 22px;
+  margin: 16px 4px 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.msg.ok {
+  color: var(--brand-ghost);
+}
+
+.msg.err {
+  color: var(--warn);
+}
+
+.home-card {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: -8px 0 28px;
+}
+
+.role-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--input-bg);
+  color: var(--brand-ghost);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.who-email {
+  color: var(--text-muted);
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  text-align: center;
+  word-break: break-all;
+}
+
+.home-note {
+  margin: 0 0 28px;
+  text-align: center;
+  color: var(--text-body);
+  font-size: 15px;
+  line-height: 1.65;
+  letter-spacing: 0.02em;
+}
+
+.home-card .btn-register {
+  margin-top: 0;
 }
 
 /* 主钮 · 实心 Flat 2.0（同 PR#12：悬停加深、不上浮） */
@@ -358,7 +495,12 @@ body {
   }
 
   .form-wrap {
+    padding-top: 56px;
     padding-bottom: 4vh;
+  }
+
+  .home-note {
+    font-size: 14px;
   }
 
   .title {

@@ -18,36 +18,143 @@
       >
     </div>
 
-    <div class="form-wrap">
-      <form class="login-form" action="#" method="post" autocomplete="on" onsubmit="return false">
-        <h1 class="title">欢迎来到春芽</h1>
+    <div id="login-view">
+      <div class="form-wrap">
+        <form class="login-form" id="login-form" action="#" method="post" autocomplete="on">
+          <h1 class="title">欢迎来到春芽</h1>
 
-        <div class="field">
-          <label for="account">邮箱/用户名</label>
-          <input
-            id="account"
-            name="account"
-            type="text"
-            autocomplete="username"
-            placeholder=""
-          >
-        </div>
+          <div class="field">
+            <label for="email">邮箱</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autocomplete="username"
+              inputmode="email"
+            >
+          </div>
 
-        <div class="field">
-          <label for="password">密码</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autocomplete="current-password"
-            placeholder=""
-          >
-        </div>
+          <div class="field">
+            <label for="password">密码（至少 6 位）</label>
+            <div class="password-wrap">
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+              >
+              <button type="button" class="peek-btn" id="peek-password" aria-label="按住显示密码" aria-pressed="false">
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+                  <path d="M2.2 12S5.8 6.2 12 6.2 21.8 12 21.8 12 18.2 17.8 12 17.8 2.2 12 2.2 12Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                  <circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                </svg>
+              </button>
+            </div>
+          </div>
 
-        <button class="btn-login" type="button">登录</button>
-        <a class="btn-register" href="#">注册</a>
-      </form>
+          <button class="btn-login" id="login-btn" type="button">登录</button>
+          <button class="btn-register" id="signup-btn" type="button">注册</button>
+          <div class="msg" id="msg" role="status" aria-live="polite"></div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 第二阶段：家长升级视训师走 rpc register_therapist（upgradeTherapist），此页不放入口。 -->
+    <div id="main-view" style="display:none;">
+      <div class="form-wrap">
+        <section class="home-card" aria-label="登录后首页">
+          <h1 class="title" id="home-title">家长首页（占位）</h1>
+          <div class="who">
+            <span id="role-tag" class="role-tag">家长</span>
+            <span id="who-email" class="who-email"></span>
+          </div>
+          <p class="home-note">登录已接通。练习安排下一阶段再接入。</p>
+          <button class="btn-register" id="logout-btn" type="button">退出</button>
+        </section>
+      </div>
     </div>
   </div>
+
+<script src="supabase.js"></script>
+<script src="auth.js"></script>
+<script>
+  var SUPABASE_URL = 'https://ucjgcybsvrkfgkszcygq.supabase.co';
+  var ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjamdjeWJzdnJrZmdrc3pjeWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDY5ODIsImV4cCI6MjEwNzQ4Mjk4Mn0.tMtklRCxDjtO5Lb5cMjqg_LeB5cUxfVOZxxwNRO0aDw';
+  var sb = window.supabase.createClient(SUPABASE_URL, ANON_KEY);
+  window.sb = sb;
+  var state = { user: null, profile: null };
+  window.state = state;
+
+  function roleText(r) { return r === 'therapist' ? '视训师' : '家长'; }
+
+  // 占位分流：不接 renderParentHome / renderTherapistHome。
+  function home() {
+    var profile = state.profile || { role: 'parent' };
+    var isTherapist = profile.role === 'therapist';
+    var title = document.getElementById('home-title');
+    var tag = document.getElementById('role-tag');
+    var who = document.getElementById('who-email');
+    if (title) title.textContent = isTherapist ? '视训师首页（占位）' : '家长首页（占位）';
+    if (tag) tag.textContent = roleText(profile.role);
+    if (who) who.textContent = (state.user && state.user.email) ? state.user.email : '';
+  }
+  window.home = home;
+
+  document.getElementById('login-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    signIn();
+  });
+  document.getElementById('login-btn').onclick = signIn;
+  document.getElementById('signup-btn').onclick = signUp;
+  document.getElementById('logout-btn').onclick = async function () {
+    await signOut();
+    var m = document.getElementById('msg');
+    if (m) { m.textContent = ''; m.className = 'msg'; }
+  };
+
+  (function () {
+    var btn = document.getElementById('peek-password');
+    var input = document.getElementById('password');
+    if (!btn || !input) return;
+    function showPeek() {
+      input.type = 'text';
+      btn.setAttribute('aria-pressed', 'true');
+    }
+    function hidePeek() {
+      input.type = 'password';
+      btn.setAttribute('aria-pressed', 'false');
+    }
+    btn.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      showPeek();
+    });
+    btn.addEventListener('pointerup', hidePeek);
+    btn.addEventListener('pointerleave', hidePeek);
+    btn.addEventListener('pointercancel', hidePeek);
+    btn.addEventListener('touchstart', showPeek, { passive: true });
+    btn.addEventListener('touchend', hidePeek);
+    btn.addEventListener('touchcancel', hidePeek);
+    btn.addEventListener('blur', hidePeek);
+    btn.addEventListener('keydown', function (e) {
+      if (e.key !== ' ' && e.key !== 'Enter') return;
+      e.preventDefault();
+      showPeek();
+    });
+    btn.addEventListener('keyup', function (e) {
+      if (e.key !== ' ' && e.key !== 'Enter') return;
+      e.preventDefault();
+      hidePeek();
+    });
+  })();
+
+  (async function init() {
+    try {
+      var res = await sb.auth.getSession();
+      if (res.data && res.data.session) await afterLogin(res.data.session.user);
+    } catch (e) {
+      showMsg(thrownAuthText(e));
+    }
+  })();
+</script>
 </body>
 </html>
