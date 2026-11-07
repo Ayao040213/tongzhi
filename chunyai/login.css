@@ -166,13 +166,17 @@ body {
   cursor: pointer;
   -webkit-appearance: none;
   appearance: none;
+  transition: background-color .15s ease, box-shadow .15s ease, transform .15s ease;
 }
 
-.btn-start:hover {
-  background: var(--brand);
+@media (hover: hover) {
+  .btn-start:hover:not(:disabled) {
+    background: var(--brand-pressed);
+    box-shadow: 0 4px 0 var(--brand-pressed);
+  }
 }
 
-.btn-start:active {
+.btn-start:active:not(:disabled) {
   background: var(--brand-pressed);
   box-shadow: 0 2px 0 var(--brand-pressed);
   transform: translateY(2px);
@@ -187,6 +191,7 @@ body {
   background: var(--brand-disabled);
   box-shadow: none;
   cursor: not-allowed;
+  transform: none;
 }
 
 @media (max-width: 720px) {
