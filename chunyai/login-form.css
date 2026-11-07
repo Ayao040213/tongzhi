@@ -1,0 +1,320 @@
+/* 春芽账号登录表单
+   已对照品牌规范 v1.5 §色板 / §四绿 / §按钮造形（主实心 + 次幽灵描边）。
+   与开屏 login.css 分开，避免改动「春芽相伴 / 开始」的壳。 */
+
+@font-face {
+  font-family: "GenSenRounded2";
+  src: url("fonts/GenSenRounded2-R.ttc#GenSenRounded2TW-R") format("collection");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "GenSenRounded2";
+  src: url("fonts/GenSenRounded2-B.ttc#GenSenRounded2TW-B") format("collection");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "GenSenRounded2";
+  src: url("fonts/GenSenRounded2-H.ttc#GenSenRounded2TW-H") format("collection");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --bg: #F7F4EC;
+  --input-bg: #F0F5E8;
+  --border: #E4EBD8;
+  --brand: #98C058;
+  --brand-pressed: #88A858;
+  --brand-disabled: #D5E3B8;
+  --brand-ghost: #688828;
+  --bg-hover: #EBE4D6;
+  --text-title: #5C5348;
+  --text-body: #6E655A;
+  --text-muted: #9A9184;
+  --text-disabled: #C4BDB2;
+  --font-ui: "GenSenRounded2", "源泉圆体", "Yuanti SC", "YouYuan", "PingFang SC",
+    "Hiragino Maru Gothic ProN", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans SC", sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text-body);
+  color-scheme: light;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  padding: 28px 32px 48px;
+}
+
+.brand-logo {
+  position: absolute;
+  top: 28px;
+  left: 28px;
+  height: 48px;
+  width: auto;
+  display: block;
+  user-select: none;
+  pointer-events: none;
+}
+
+.form-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 6vh;
+}
+
+.login-form {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.title {
+  margin: 0 0 40px;
+  text-align: center;
+  color: var(--text-title);
+  font-family: var(--font-ui);
+  font-weight: 900;
+  font-size: 32px;
+  letter-spacing: 0.06em;
+  line-height: 1.25;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+
+.field label {
+  color: var(--text-body);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  padding-left: 4px;
+}
+
+.field input {
+  width: 100%;
+  height: 52px;
+  padding: 0 18px;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  background: var(--input-bg);
+  color: var(--text-title);
+  font-family: var(--font-ui);
+  font-size: 16px;
+  font-weight: 400;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.field input::placeholder {
+  color: var(--text-muted);
+}
+
+.field input:hover {
+  border-color: #d5dfc4;
+}
+
+.field input:focus {
+  border-color: var(--brand-ghost);
+  box-shadow: 0 0 0 3px rgba(104, 136, 40, 0.12);
+}
+
+.field input:-webkit-autofill,
+.field input:-webkit-autofill:hover {
+  -webkit-text-fill-color: var(--text-title);
+  caret-color: var(--text-title);
+  box-shadow: 0 0 0 1000px var(--input-bg) inset;
+  transition: background-color 9999s ease-out;
+}
+
+.field input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-title);
+  caret-color: var(--text-title);
+  border-color: var(--brand-ghost);
+  box-shadow: 0 0 0 1000px var(--input-bg) inset, 0 0 0 3px rgba(104, 136, 40, 0.12);
+}
+
+/* 主钮 · 实心 Flat 2.0（同 PR#12：悬停加深、不上浮） */
+.btn-login {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10px;
+  width: 100%;
+  height: 56px;
+  border: none;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #ffffff;
+  box-shadow: 0 4px 0 var(--brand-pressed);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.18em;
+  padding-left: 0.18em;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+@media (hover: hover) {
+  .btn-login:hover:not(:disabled) {
+    background: var(--brand-pressed);
+    box-shadow: 0 4px 0 var(--brand-pressed);
+  }
+}
+
+.btn-login:active:not(:disabled) {
+  background: var(--brand-pressed);
+  box-shadow: 0 2px 0 var(--brand-pressed);
+  transform: translateY(2px);
+}
+
+.btn-login:focus-visible {
+  outline: 3px solid var(--brand-ghost);
+  outline-offset: 4px;
+}
+
+.btn-login:disabled {
+  background: var(--brand-disabled);
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+  color: #ffffff;
+}
+
+/* 次钮 · 幽灵描边 Flat 2.0 */
+.btn-register {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 16px;
+  width: 100%;
+  height: 56px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--brand-ghost);
+  border: 2.5px solid var(--brand-ghost);
+  box-shadow: 0 3px 0 var(--brand-ghost);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.18em;
+  padding-left: 0.18em;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-register:link,
+.btn-register:visited {
+  color: var(--brand-ghost);
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .btn-register:hover {
+    background: var(--bg-hover);
+    color: var(--brand-ghost);
+    border-color: var(--brand-ghost);
+    box-shadow: 0 3px 0 var(--brand-ghost);
+    /* 悬停：米白填加深 #EBE4D6，边/字仍幽灵绿；不上浮、不换绿 */
+  }
+}
+
+.btn-register:active {
+  background: var(--bg-hover);
+  color: var(--brand-ghost);
+  border-color: var(--brand-ghost);
+  box-shadow: 0 1px 0 var(--brand-ghost);
+  transform: translateY(2px);
+}
+
+.btn-register:focus-visible {
+  outline: 3px solid var(--brand-ghost);
+  outline-offset: 4px;
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 20px 20px 40px;
+  }
+
+  .brand-logo {
+    top: 18px;
+    left: 20px;
+    height: 40px;
+  }
+
+  .form-wrap {
+    padding-bottom: 4vh;
+  }
+
+  .title {
+    font-size: 26px;
+    margin-bottom: 32px;
+    letter-spacing: 0.04em;
+  }
+
+  .field {
+    margin-bottom: 18px;
+  }
+
+  .field input {
+    height: 50px;
+    font-size: 16px;
+  }
+
+  .btn-login,
+  .btn-register {
+    height: 52px;
+    font-size: 17px;
+  }
+}

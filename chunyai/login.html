@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>欢迎来到春芽 · 登录</title>
+  <link rel="stylesheet" href="login-form.css">
+</head>
+<body>
+  <div class="page">
+    <img
+      class="brand-logo"
+      src="assets/chunya_logo.png"
+      alt="chunya"
+      height="48"
+    >
+
+    <div class="form-wrap">
+      <form class="login-form" action="#" method="post" autocomplete="on" onsubmit="return false">
+        <h1 class="title">欢迎来到春芽</h1>
+
+        <div class="field">
+          <label for="account">邮箱/用户名</label>
+          <input
+            id="account"
+            name="account"
+            type="text"
+            autocomplete="username"
+            placeholder=""
+          >
+        </div>
+
+        <div class="field">
+          <label for="password">密码</label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            placeholder=""
+          >
+        </div>
+
+        <button class="btn-login" type="button">登录</button>
+        <a class="btn-register" href="#">注册</a>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
