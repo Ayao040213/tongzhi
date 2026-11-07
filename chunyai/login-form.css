@@ -140,12 +140,24 @@ body {
   pointer-events: none;
 }
 
+/* 登录表单与登录后占位页共用这一列；显隐由 auth.js 清掉 inline display */
+#login-view,
+#main-view {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+}
+
 .form-wrap {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  justify-content: safe center;
+  padding-top: 64px;
   padding-bottom: 6vh;
 }
 
@@ -226,6 +238,140 @@ body {
   caret-color: var(--text-title);
   border-color: var(--brand-ghost);
   box-shadow: 0 0 0 1000px var(--input-bg) inset, 0 0 0 3px rgba(104, 136, 40, 0.12);
+}
+
+.role-label {
+  color: var(--text-body);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  padding-left: 4px;
+}
+
+.role-tabs {
+  display: flex;
+  gap: 12px;
+}
+
+.role-tab {
+  flex: 1;
+  height: 44px;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: var(--input-bg);
+  color: var(--text-body);
+  box-shadow: none;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.12em;
+  padding-left: 0.12em;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+@media (hover: hover) {
+  .role-tab:hover:not(.active) {
+    background: var(--bg-hover);
+    border-color: #d5dfc4;
+  }
+}
+
+.role-tab.active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #ffffff;
+  box-shadow: 0 3px 0 var(--brand-pressed);
+}
+
+.role-tab:active:not(:disabled) {
+  transform: translateY(2px);
+}
+
+.role-tab.active:active {
+  background: var(--brand-pressed);
+  box-shadow: 0 1px 0 var(--brand-pressed);
+}
+
+.role-tab:focus-visible {
+  outline: 3px solid var(--brand-ghost);
+  outline-offset: 3px;
+}
+
+.msg {
+  min-height: 22px;
+  margin: 16px 4px 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.msg.ok {
+  color: var(--brand-ghost);
+}
+
+.msg.err {
+  color: #8E4B3A;
+}
+
+.home-card {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: -8px 0 28px;
+}
+
+.role-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--input-bg);
+  color: var(--brand-ghost);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.who-email {
+  color: var(--text-muted);
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  text-align: center;
+  word-break: break-all;
+}
+
+.home-note {
+  margin: 0 0 28px;
+  text-align: center;
+  color: var(--text-body);
+  font-size: 15px;
+  line-height: 1.65;
+  letter-spacing: 0.02em;
+}
+
+.home-card .btn-register {
+  margin-top: 0;
 }
 
 /* 主钮 · 实心 Flat 2.0（同 PR#12：悬停加深、不上浮） */
@@ -358,7 +504,17 @@ body {
   }
 
   .form-wrap {
+    padding-top: 56px;
     padding-bottom: 4vh;
+  }
+
+  .role-tab {
+    height: 42px;
+    font-size: 14px;
+  }
+
+  .home-note {
+    font-size: 14px;
   }
 
   .title {

@@ -18,36 +18,120 @@
       >
     </div>
 
-    <div class="form-wrap">
-      <form class="login-form" action="#" method="post" autocomplete="on" onsubmit="return false">
-        <h1 class="title">欢迎来到春芽</h1>
+    <div id="login-view">
+      <div class="form-wrap">
+        <form class="login-form" id="login-form" action="#" method="post" autocomplete="on">
+          <h1 class="title">欢迎来到春芽</h1>
 
-        <div class="field">
-          <label for="account">邮箱/用户名</label>
-          <input
-            id="account"
-            name="account"
-            type="text"
-            autocomplete="username"
-            placeholder=""
-          >
-        </div>
+          <div class="field">
+            <label for="email">邮箱</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autocomplete="username"
+              inputmode="email"
+            >
+          </div>
 
-        <div class="field">
-          <label for="password">密码</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autocomplete="current-password"
-            placeholder=""
-          >
-        </div>
+          <div class="field">
+            <label for="password">密码（至少 6 位）</label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+            >
+          </div>
 
-        <button class="btn-login" type="button">登录</button>
-        <a class="btn-register" href="#">注册</a>
-      </form>
+          <div class="field role-field">
+            <span class="role-label" id="role-label">注册身份</span>
+            <div class="role-tabs" role="group" aria-labelledby="role-label">
+              <button type="button" class="role-tab active" id="role-parent-btn" aria-pressed="true">家长</button>
+              <button type="button" class="role-tab" id="role-therapist-btn" aria-pressed="false">视训师</button>
+            </div>
+          </div>
+
+          <div class="field" id="code-field" style="display:none;">
+            <label for="therapist-code">视训师授权码</label>
+            <input
+              id="therapist-code"
+              name="therapist-code"
+              type="password"
+              autocomplete="off"
+            >
+          </div>
+
+          <button class="btn-login" id="login-btn" type="button">登录</button>
+          <button class="btn-register" id="signup-btn" type="button">注册</button>
+          <div class="msg" id="msg" role="status" aria-live="polite"></div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 第二阶段：家长升级视训师走 rpc register_therapist（upgradeTherapist），此页不放入口。 -->
+    <div id="main-view" style="display:none;">
+      <div class="form-wrap">
+        <section class="home-card" aria-label="登录后首页">
+          <h1 class="title" id="home-title">家长首页（占位）</h1>
+          <div class="who">
+            <span id="role-tag" class="role-tag">家长</span>
+            <span id="who-email" class="who-email"></span>
+          </div>
+          <p class="home-note">登录已接通。练习安排下一阶段再接入。</p>
+          <button class="btn-register" id="logout-btn" type="button">退出</button>
+        </section>
+      </div>
     </div>
   </div>
+
+<script src="supabase.js"></script>
+<script src="auth.js"></script>
+<script>
+  var SUPABASE_URL = 'https://ucjgcybsvrkfgkszcygq.supabase.co';
+  var ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjamdjeWJzdnJrZmdrc3pjeWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDY5ODIsImV4cCI6MjEwNzQ4Mjk4Mn0.tMtklRCxDjtO5Lb5cMjqg_LeB5cUxfVOZxxwNRO0aDw';
+  var sb = window.supabase.createClient(SUPABASE_URL, ANON_KEY);
+  window.sb = sb;
+  var state = { user: null, profile: null };
+  window.state = state;
+
+  function roleText(r) { return r === 'therapist' ? '视训师' : '家长'; }
+
+  // 占位分流：不接 renderParentHome / renderTherapistHome。
+  function home() {
+    var profile = state.profile || { role: 'parent' };
+    var isTherapist = profile.role === 'therapist';
+    var title = document.getElementById('home-title');
+    var tag = document.getElementById('role-tag');
+    var who = document.getElementById('who-email');
+    if (title) title.textContent = isTherapist ? '视训师首页（占位）' : '家长首页（占位）';
+    if (tag) tag.textContent = roleText(profile.role);
+    if (who) who.textContent = (state.user && state.user.email) ? state.user.email : '';
+  }
+  window.home = home;
+
+  document.getElementById('login-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    signIn();
+  });
+  document.getElementById('login-btn').onclick = signIn;
+  document.getElementById('signup-btn').onclick = signUp;
+  document.getElementById('role-parent-btn').onclick = function () { setSignupRole('parent'); };
+  document.getElementById('role-therapist-btn').onclick = function () { setSignupRole('therapist'); };
+  document.getElementById('logout-btn').onclick = async function () {
+    await signOut();
+    var m = document.getElementById('msg');
+    if (m) { m.textContent = ''; m.className = 'msg'; }
+  };
+
+  (async function init() {
+    try {
+      var res = await sb.auth.getSession();
+      if (res.data && res.data.session) await afterLogin(res.data.session.user);
+    } catch (e) {
+      showMsg(thrownAuthText(e));
+    }
+  })();
+</script>
 </body>
 </html>
