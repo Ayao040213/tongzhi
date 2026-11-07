@@ -36,12 +36,20 @@
 
           <div class="field">
             <label for="password">密码（至少 6 位）</label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autocomplete="current-password"
-            >
+            <div class="password-wrap">
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+              >
+              <button type="button" class="peek-btn" id="peek-password" aria-label="按住显示密码" aria-pressed="false">
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+                  <path d="M2.2 12S5.8 6.2 12 6.2 21.8 12 21.8 12 18.2 17.8 12 17.8 2.2 12 2.2 12Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                  <circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                </svg>
+              </button>
+            </div>
           </div>
 
           <button class="btn-login" id="login-btn" type="button">登录</button>
@@ -103,6 +111,41 @@
     var m = document.getElementById('msg');
     if (m) { m.textContent = ''; m.className = 'msg'; }
   };
+
+  (function () {
+    var btn = document.getElementById('peek-password');
+    var input = document.getElementById('password');
+    if (!btn || !input) return;
+    function showPeek() {
+      input.type = 'text';
+      btn.setAttribute('aria-pressed', 'true');
+    }
+    function hidePeek() {
+      input.type = 'password';
+      btn.setAttribute('aria-pressed', 'false');
+    }
+    btn.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      showPeek();
+    });
+    btn.addEventListener('pointerup', hidePeek);
+    btn.addEventListener('pointerleave', hidePeek);
+    btn.addEventListener('pointercancel', hidePeek);
+    btn.addEventListener('touchstart', showPeek, { passive: true });
+    btn.addEventListener('touchend', hidePeek);
+    btn.addEventListener('touchcancel', hidePeek);
+    btn.addEventListener('blur', hidePeek);
+    btn.addEventListener('keydown', function (e) {
+      if (e.key !== ' ' && e.key !== 'Enter') return;
+      e.preventDefault();
+      showPeek();
+    });
+    btn.addEventListener('keyup', function (e) {
+      if (e.key !== ' ' && e.key !== 'Enter') return;
+      e.preventDefault();
+      hidePeek();
+    });
+  })();
 
   (async function init() {
     try {
