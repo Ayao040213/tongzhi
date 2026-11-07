@@ -163,10 +163,23 @@ body {
   letter-spacing: 3px;
   padding-left: 3px;
   line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
   cursor: pointer;
   -webkit-appearance: none;
   appearance: none;
   transition: background-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+
+/* 「开始」只跳到账号登录表单。补链接态，避免下划线和访问色盖掉白字。 */
+.btn-start:link,
+.btn-start:visited,
+.btn-start:hover,
+.btn-start:active {
+  color: #ffffff;
+  text-decoration: none;
 }
 
 @media (hover: hover) {
