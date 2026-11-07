@@ -34,6 +34,7 @@
   --brand-pressed: #88A858;
   --brand-disabled: #D5E3B8;
   --brand-ghost: #688828;
+  --bg-hover: #EBE4D6;
   --text-title: #5C5348;
   --text-body: #6E655A;
   --text-muted: #9A9184;
@@ -260,12 +261,18 @@ body {
 
 @media (hover: hover) {
   .btn-register:hover {
-    background: var(--input-bg);
+    background: var(--bg-hover);
     color: var(--brand-ghost);
+    border-color: var(--brand-ghost);
+    box-shadow: 0 3px 0 var(--brand-ghost);
+    /* 悬停：米白填加深 #EBE4D6，边/字仍幽灵绿；不上浮、不换绿 */
   }
 }
 
 .btn-register:active {
+  background: var(--bg-hover);
+  color: var(--brand-ghost);
+  border-color: var(--brand-ghost);
   box-shadow: 0 1px 0 var(--brand-ghost);
   transform: translateY(2px);
 }
