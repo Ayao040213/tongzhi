@@ -76,13 +76,66 @@ body {
   padding: 28px 32px 48px;
 }
 
-.brand-logo {
+/* 返回开屏：左上文字链，logo 跟在右侧，避免压住品牌标 */
+.topbar {
   position: absolute;
   top: 28px;
   left: 28px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 56px);
+}
+
+.back-link {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 999px;
+  color: var(--text-body);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  background: transparent;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.back-link:link,
+.back-link:visited {
+  color: var(--text-body);
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .back-link:hover {
+    background: var(--bg-hover);
+    color: var(--text-title);
+  }
+}
+
+.back-link:active {
+  background: var(--bg-hover);
+  color: var(--text-title);
+}
+
+.back-link:focus-visible {
+  outline: 3px solid var(--brand-ghost);
+  outline-offset: 4px;
+}
+
+.brand-logo {
+  position: static;
   height: 48px;
   width: auto;
   display: block;
+  flex: none;
   user-select: none;
   pointer-events: none;
 }
@@ -287,9 +340,20 @@ body {
     padding: 20px 20px 40px;
   }
 
-  .brand-logo {
+  .topbar {
     top: 18px;
     left: 20px;
+    gap: 6px;
+    max-width: calc(100% - 40px);
+  }
+
+  .back-link {
+    height: 34px;
+    padding: 0 8px;
+    font-size: 14px;
+  }
+
+  .brand-logo {
     height: 40px;
   }
 
